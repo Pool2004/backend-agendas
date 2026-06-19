@@ -1,0 +1,174 @@
+import re
+import threading
+from fastapi import APIRouter, HTTPException, status
+from pydantic import BaseModel, Field
+from typing import List, Dict, Any
+
+from backend.data import (
+    obtener_todos_los_grados,
+    obtener_horarios_disponibles,
+    leer_citas,
+    guardar_citas,
+    buscar_grado_por_id
+)
+from backend.email_utils import enviar_correo_confirmacion, enviar_correo_docente
+
+router = APIRouter(prefix="/api")
+
+# Modelo de Pydantic para validar los datos de la cita recibida
+class CitaSchema(BaseModel):
+    acudiente: str = Field(..., min_length=2, description="Nombre completo del acudiente")
+    telefono: str = Field(..., min_length=7, description="Número de teléfono de contacto")
+    correo: str = Field(..., description="Correo electrónico de contacto")
+    estudiante: str = Field(..., min_length=2, description="Nombre completo del estudiante")
+    grado: str = Field(..., description="Grado seleccionado")
+    horario: str = Field(..., description="Horario seleccionado")
+
+# Expresión regular sencilla para validar el formato de correo electrónico sin dependencias adicionales
+EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
+
+@router.get("/grados", response_model=List[Dict[str, str]])
+def list_grados():
+    """
+    Retorna la lista de todos los grados con su grupo y docente asignado.
+    """
+    return obtener_todos_los_grados()
+
+@router.get("/horarios/{grado}", response_model=Dict[str, Any])
+def get_horarios(grado: str):
+    """
+    Retorna el docente y los horarios disponibles para el grado especificado.
+    Lanza error 404 si el grado no existe.
+    """
+    horarios_info = obtener_horarios_disponibles(grado)
+    if not horarios_info:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"El grado '{grado}' no está registrado en el sistema."
+        )
+    return horarios_info
+
+@router.post("/citas", response_model=Dict[str, Any])
+def create_cita(cita: CitaSchema):
+    """
+    Registra una nueva cita si pasa todas las validaciones:
+    - Campos obligatorios no vacíos (manejado por Pydantic y validación manual de espacios).
+    - Email con formato correcto.
+    - El grado especificado debe existir.
+    - El horario debe ser uno de los horarios base del grado.
+    - Evita reservas duplicadas: el horario para este grado no debe estar ya reservado.
+    """
+    # Limpieza de espacios en blanco al inicio y al final de los textos
+    acudiente = cita.acudiente.strip()
+    telefono = cita.telefono.strip()
+    correo = cita.correo.strip()
+    estudiante = cita.estudiante.strip()
+    grado_id = cita.grado.strip()
+    horario = cita.horario.strip()
+
+    # Validaciones manuales de campos obligatorios para asegurar que no contengan solo espacios
+    if not acudiente or not telefono or not correo or not estudiante or not grado_id or not horario:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="Todos los campos son obligatorios y no deben contener únicamente espacios."
+        )
+
+    # Validación de formato de correo electrónico
+    if not EMAIL_REGEX.match(correo):
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail="El correo electrónico ingresado no tiene un formato válido."
+        )
+
+    # Validar que el grado exista en el sistema
+    grado_info = buscar_grado_por_id(grado_id)
+    if not grado_info:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"El grado '{grado_id}' no existe."
+        )
+
+    # Validar que el horario propuesto pertenezca a los horarios base de ese grado
+    if horario not in grado_info["horarios_base"]:
+        raise HTTPException(
+            status_code=status.HTTP_400_BAD_REQUEST,
+            detail=f"El horario '{horario}' no pertenece al cronograma del docente asignado al grado {grado_id}."
+        )
+
+    # Leer citas registradas para comprobar disponibilidad y duplicados
+    citas_actuales = leer_citas()
+
+    # Evitar reservas duplicadas: verificar si ya existe una cita registrada para ese grado y horario
+    for c in citas_actuales:
+        if c["grado"] == grado_id and c["horario"] == horario:
+            raise HTTPException(
+                status_code=status.HTTP_409_CONFLICT,
+                detail=f"El horario '{horario}' para el grado {grado_id} ya ha sido reservado por otro acudiente."
+            )
+
+    # Crear la nueva cita y guardarla
+    nueva_cita = {
+        "acudiente": acudiente,
+        "telefono": telefono,
+        "correo": correo,
+        "estudiante": estudiante,
+        "grado": grado_id,
+        "horario": horario
+    }
+
+    citas_actuales.append(nueva_cita)
+    if not guardar_citas(citas_actuales):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno al intentar guardar la cita en el sistema de almacenamiento."
+        )
+
+    # Enviar correo de confirmacion en segundo plano sin bloquear la respuesta HTTP.
+    # Se ejecuta en un hilo separado para que posibles demoras del servidor SMTP
+    # no afecten el tiempo de respuesta del endpoint.
+    hilo_correo = threading.Thread(
+        target=enviar_correo_confirmacion,
+        kwargs={
+            "destinatario": correo,
+            "acudiente": acudiente,
+            "estudiante": estudiante,
+            "grado": grado_id,
+            "grupo": grado_info["grupo"],
+            "docente": grado_info["docente"],
+            "horario": horario,
+            "telefono": telefono
+        },
+        daemon=True
+    )
+    hilo_correo.start()
+
+    # Enviar notificacion al docente si tiene correo configurado
+    correo_docente = grado_info.get("correo")
+    if correo_docente:
+        hilo_correo_docente = threading.Thread(
+            target=enviar_correo_docente,
+            kwargs={
+                "correo_docente": correo_docente,
+                "docente": grado_info["docente"],
+                "acudiente": acudiente,
+                "estudiante": estudiante,
+                "grado": grado_id,
+                "grupo": grado_info["grupo"],
+                "horario": horario,
+                "telefono": telefono
+            },
+            daemon=True
+        )
+        hilo_correo_docente.start()
+
+    return {
+        "success": True,
+        "message": "Agendamiento registrado correctamente. Se ha enviado un correo de confirmacion a su direccion de correo electronico."
+    }
+
+@router.get("/citas", response_model=List[Dict[str, Any]])
+def list_citas():
+    """
+    Retorna la lista completa de todas las citas agendadas y guardadas.
+    """
+    return leer_citas()
