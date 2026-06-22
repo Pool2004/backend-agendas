@@ -21,7 +21,8 @@ def enviar_correo_confirmacion(
     grupo: str,
     docente: str,
     horario: str,
-    telefono: str
+    telefono: str,
+    servidor=None
 ) -> bool:
     """
     Envia un correo electronico de confirmacion al acudiente con los detalles
@@ -144,7 +145,7 @@ def enviar_correo_confirmacion(
         <div class="container">
             <div class="header">
                 <h1>Confirmacion de Agendamiento de Matricula</h1>
-                <p>Sistema de Agendamiento Academico - Comfandi E Yumbo</p>
+                <p>Sistema de Agendamiento Academico - Comfandi Sede Yumbo</p>
             </div>
             <div class="body">
                 <p class="greeting">
@@ -189,7 +190,7 @@ def enviar_correo_confirmacion(
                 </div>
             </div>
             <div class="footer">
-                Comfandi E &mdash; Yumbo &mdash; 2026<br>
+                Comfandi E &mdash; Sede Yumbo &mdash; 2026<br>
                 Este es un mensaje automatico, por favor no responda a este correo.
             </div>
         </div>
@@ -219,12 +220,15 @@ def enviar_correo_confirmacion(
     mensaje.attach(MIMEText(cuerpo_html, "html", "utf-8"))
 
     try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as servidor:
-            servidor.ehlo()
-            servidor.starttls()
-            servidor.ehlo()
-            servidor.login(EMAIL_SENDER, EMAIL_PASSWORD)
+        if servidor:
             servidor.sendmail(EMAIL_SENDER, destinatario, mensaje.as_string())
+        else:
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as s:
+                s.ehlo()
+                s.starttls()
+                s.ehlo()
+                s.login(EMAIL_SENDER, EMAIL_PASSWORD)
+                s.sendmail(EMAIL_SENDER, destinatario, mensaje.as_string())
         print(f"[Correo] Confirmacion enviada exitosamente a: {destinatario}")
         return True
     except smtplib.SMTPAuthenticationError:
@@ -246,7 +250,8 @@ def enviar_correo_docente(
     grado: str,
     grupo: str,
     horario: str,
-    telefono: str
+    telefono: str,
+    servidor=None
 ) -> bool:
     """
     Envia un correo electronico de notificacion al docente con los detalles
@@ -285,13 +290,13 @@ def enviar_correo_docente(
         <div class="container">
             <div class="header">
                 <h1>Nuevo Agendamiento Recibido</h1>
-                <p>Sistema de Agendamiento Academico - Comfandi E Yumbo</p>
+                <p>Sistema de Agendamiento Academico - Comfandi Sede Yumbo</p>
             </div>
             <div class="body">
                 <p class="greeting">
                     Hola <strong>{docente}</strong>,<br><br>
                     Se ha registrado un nuevo agendamiento para el proceso de
-                    <strong>Matricula Academica 2026 - 2027</strong>. A continuacion, los detalles del estudiante y acudiente asignado a tu cargo:
+                    <strong>Matricula Academica 2026</strong>. A continuacion, los detalles del estudiante y acudiente asignado a tu cargo:
                 </p>
 
                 <div class="detail-box">
@@ -350,12 +355,15 @@ def enviar_correo_docente(
     mensaje.attach(MIMEText(cuerpo_html, "html", "utf-8"))
 
     try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as servidor:
-            servidor.ehlo()
-            servidor.starttls()
-            servidor.ehlo()
-            servidor.login(EMAIL_SENDER, EMAIL_PASSWORD)
+        if servidor:
             servidor.sendmail(EMAIL_SENDER, correo_docente, mensaje.as_string())
+        else:
+            with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as s:
+                s.ehlo()
+                s.starttls()
+                s.ehlo()
+                s.login(EMAIL_SENDER, EMAIL_PASSWORD)
+                s.sendmail(EMAIL_SENDER, correo_docente, mensaje.as_string())
         print(f"[Correo] Notificacion enviada exitosamente al docente: {correo_docente}")
         return True
     except Exception as e:
@@ -730,3 +738,62 @@ def enviar_correo_reprogramacion(
     except Exception as e:
         print(f"[Correo] Error al enviar correos de reprogramacion: {e}")
         return False
+
+
+def enviar_correos_nuevo_agendamiento(
+    correo_padre: str,
+    correo_docente: str,
+    acudiente: str,
+    estudiante: str,
+    grado: str,
+    grupo: str,
+    docente: str,
+    horario: str,
+    telefono: str
+) -> bool:
+    """
+    Envía la confirmación al acudiente y la notificación al docente en una única sesión SMTP
+    para evitar colisiones de conexión/login con Office 365.
+    """
+    if not EMAIL_SENDER or not EMAIL_PASSWORD:
+        print("[Correo] Falta configuración de EMAIL_SENDER o EMAIL_PASSWORD.")
+        return False
+
+    try:
+        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as s:
+            s.ehlo()
+            s.starttls()
+            s.ehlo()
+            s.login(EMAIL_SENDER, EMAIL_PASSWORD)
+            
+            # Enviar al acudiente
+            enviar_correo_confirmacion(
+                destinatario=correo_padre,
+                acudiente=acudiente,
+                estudiante=estudiante,
+                grado=grado,
+                grupo=grupo,
+                docente=docente,
+                horario=horario,
+                telefono=telefono,
+                servidor=s
+            )
+            
+            # Enviar al docente si tiene correo
+            if correo_docente:
+                enviar_correo_docente(
+                    correo_docente=correo_docente,
+                    docente=docente,
+                    acudiente=acudiente,
+                    estudiante=estudiante,
+                    grado=grado,
+                    grupo=grupo,
+                    horario=horario,
+                    telefono=telefono,
+                    servidor=s
+                )
+        return True
+    except Exception as e:
+        print(f"[Correo] Error en la sesión SMTP combinada: {e}")
+        return False
+

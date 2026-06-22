@@ -20,7 +20,8 @@ from email_utils import (
     enviar_correo_confirmacion,
     enviar_correo_docente,
     enviar_correo_cancelacion,
-    enviar_correo_reprogramacion
+    enviar_correo_reprogramacion,
+    enviar_correos_nuevo_agendamiento
 )
 
 router = APIRouter(prefix="/api")
@@ -131,13 +132,14 @@ def create_cita(cita: CitaSchema):
             detail="Error interno al intentar guardar la cita en la base de datos."
         )
 
-    # Enviar correo de confirmacion en segundo plano sin bloquear la respuesta HTTP.
-    # Se ejecuta en un hilo separado para que posibles demoras del servidor SMTP
-    # no afecten el tiempo de respuesta del endpoint.
+    # Enviar correos de confirmación (acudiente y docente) en segundo plano
+    # usando una sola conexión SMTP secuencial para evitar conflictos de login con Office 365.
+    correo_docente = grado_info.get("correo")
     hilo_correo = threading.Thread(
-        target=enviar_correo_confirmacion,
+        target=enviar_correos_nuevo_agendamiento,
         kwargs={
-            "destinatario": correo,
+            "correo_padre": correo,
+            "correo_docente": correo_docente,
             "acudiente": acudiente,
             "estudiante": estudiante,
             "grado": grado_id,
@@ -149,25 +151,6 @@ def create_cita(cita: CitaSchema):
         daemon=True
     )
     hilo_correo.start()
-
-    # Enviar notificacion al docente si tiene correo configurado
-    correo_docente = grado_info.get("correo")
-    if correo_docente:
-        hilo_correo_docente = threading.Thread(
-            target=enviar_correo_docente,
-            kwargs={
-                "correo_docente": correo_docente,
-                "docente": grado_info["docente"],
-                "acudiente": acudiente,
-                "estudiante": estudiante,
-                "grado": grado_id,
-                "grupo": grado_info["grupo"],
-                "horario": horario,
-                "telefono": telefono
-            },
-            daemon=True
-        )
-        hilo_correo_docente.start()
 
     return {
         "success": True,
