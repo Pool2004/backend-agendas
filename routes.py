@@ -35,7 +35,8 @@ class LoginSchema(BaseModel):
 
 # Modelo de Pydantic para reprogramar citas
 class ReprogramarCitaSchema(BaseModel):
-    grado: str = Field(..., description="ID del docente/grado")
+    grado_actual: str = Field(..., description="ID actual del docente/grado")
+    grado_nuevo: str = Field(..., description="Nuevo ID del docente/grado")
     horario_actual: str = Field(..., description="Horario actual de la cita")
     horario_nuevo: str = Field(..., description="Nuevo horario solicitado")
 
@@ -222,19 +223,20 @@ def route_reprogramar_cita(payload: ReprogramarCitaSchema):
     """
     Reprograma un agendamiento liberando el horario anterior y validando el nuevo.
     """
-    grado_id = payload.grado.strip()
+    grado_actual = payload.grado_actual.strip()
+    grado_nuevo = payload.grado_nuevo.strip()
     horario_actual = payload.horario_actual.strip()
     horario_nuevo = payload.horario_nuevo.strip()
     
     # Validar disponibilidad
-    if verificar_cita_existente(grado_id, horario_nuevo):
+    if verificar_cita_existente(grado_nuevo, horario_nuevo):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"El horario '{horario_nuevo}' ya se encuentra reservado para este grado."
         )
         
     # Intentar la reprogramación en base de datos
-    if not reprogramar_cita(grado_id, horario_actual, horario_nuevo):
+    if not reprogramar_cita(grado_actual, grado_nuevo, horario_actual, horario_nuevo):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error interno al intentar reprogramar la cita en la base de datos."

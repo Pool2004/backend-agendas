@@ -211,16 +211,16 @@ def obtener_rol_admin(usuario: str, contrasena: str) -> str:
         print(f"Error al validar credenciales y obtener rol en la DB: {e}")
         return None
 
-def reprogramar_cita(grado_id: str, horario_actual: str, horario_nuevo: str) -> bool:
+def reprogramar_cita(grado_actual: str, grado_nuevo: str, horario_actual: str, horario_nuevo: str) -> bool:
     """
-    Actualiza el horario de una cita específica de forma atómica en Supabase.
+    Actualiza el docente y horario de una cita específica de forma atómica en Supabase.
     """
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "UPDATE citas SET horario = %s WHERE docente_id = %s AND horario = %s;",
-                    (horario_nuevo, grado_id, horario_actual)
+                    "UPDATE citas SET docente_id = %s, horario = %s WHERE docente_id = %s AND horario = %s;",
+                    (grado_nuevo, horario_nuevo, grado_actual, horario_actual)
                 )
                 conn.commit()
                 return True
