@@ -143,7 +143,8 @@ def enviar_correo_confirmacion(
     docente: str,
     horario: str,
     telefono: str,
-    servidor=None
+    servidor=None,
+    area: str = ""
 ) -> bool:
     """
     Envia un correo electronico de confirmacion al acudiente con los detalles
@@ -155,6 +156,9 @@ def enviar_correo_confirmacion(
 
     # Separar el dia y la hora del horario para mostrarlo de forma mas clara
     dia_cita, hora_cita = formatear_horario_completo(horario)
+
+    label_grado = "Grado" if area else "Grado a matricular"
+    valor_grado = area if area else f"Grado {grado} (Grupo {grupo})"
 
     # Construccion del cuerpo HTML del correo con todos los detalles del agendamiento
     cuerpo_html = f"""
@@ -275,8 +279,8 @@ def enviar_correo_confirmacion(
                         <span class="detail-value">{estudiante}</span>
                     </div>
                     <div class="detail-row">
-                        <span class="detail-label">Grado a matricular:</span>
-                        <span class="detail-value">Grado {grado} (Grupo {grupo})</span>
+                        <span class="detail-label">{label_grado}:</span>
+                        <span class="detail-value">{valor_grado}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Docente encargado:</span>
@@ -316,7 +320,7 @@ def enviar_correo_confirmacion(
         f"Confirmacion de Agendamiento de Matricula - Comfandi Yumbo 2026\n\n"
         f"Acudiente: {acudiente}\n"
         f"Estudiante: {estudiante}\n"
-        f"Grado: {grado} (Grupo {grupo})\n"
+        f"{label_grado}: {valor_grado}\n"
         f"Docente: {docente}\n"
         f"Horario: {horario}\n"
         f"Telefono: {telefono}\n\n"
@@ -341,7 +345,8 @@ def enviar_correo_docente(
     grupo: str,
     horario: str,
     telefono: str,
-    servidor=None
+    servidor=None,
+    area: str = ""
 ) -> bool:
     """
     Envia un correo electronico de notificacion al docente con los detalles
@@ -351,6 +356,9 @@ def enviar_correo_docente(
         return False
 
     dia_cita, hora_cita = formatear_horario_completo(horario)
+
+    label_grado = "Grado" if area else "Grado a matricular"
+    valor_grado = area if area else f"Grado {grado} (Grupo {grupo})"
 
     cuerpo_html = f"""
     <!DOCTYPE html>
@@ -402,8 +410,8 @@ def enviar_correo_docente(
                         <span class="detail-value">{estudiante}</span>
                     </div>
                     <div class="detail-row">
-                        <span class="detail-label">Grado a matricular:</span>
-                        <span class="detail-value">Grado {grado} (Grupo {grupo})</span>
+                        <span class="detail-label">{label_grado}:</span>
+                        <span class="detail-value">{valor_grado}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Acudiente:</span>
@@ -430,7 +438,7 @@ def enviar_correo_docente(
         f"Dia: {dia_cita}\n"
         f"Hora: {hora_cita}\n"
         f"Estudiante: {estudiante}\n"
-        f"Grado: {grado} (Grupo {grupo})\n"
+        f"{label_grado}: {valor_grado}\n"
         f"Acudiente: {acudiente}\n"
         f"Telefono: {telefono}\n"
     )
@@ -460,7 +468,7 @@ def enviar_correo_cancelacion(
     Envía correos electrónicos de cancelación al acudiente y al docente.
     """
     horario = formatear_horario_completo_string(horario)
-    label_grado_grupo = "Área" if area else "Grado / Grupo"
+    label_grado_grupo = "Grado" if area else "Grado / Grupo"
     valor_grado_grupo = area if area else f"Grado {grado} (Grupo {grupo})"
 
     # Correo para el acudiente
@@ -678,13 +686,18 @@ def enviar_correo_reprogramacion(
     grupo_antiguo: str,
     grupo_nuevo: str,
     horario_antiguo: str,
-    horario_nuevo: str
+    horario_nuevo: str,
+    area_antigua: str = "",
+    area_nueva: str = ""
 ) -> bool:
     """
     Envía correos electrónicos de reprogramación al acudiente y a los docentes correspondientes.
     """
     horario_antiguo = formatear_horario_completo_string(horario_antiguo)
     horario_nuevo = formatear_horario_completo_string(horario_nuevo)
+
+    valor_grado_antiguo = area_antigua if area_antigua else f"Grado {grado_antiguo} (Grupo {grupo_antiguo})"
+    valor_grado_nuevo = area_nueva if area_nueva else f"Grado {grado_nuevo} (Grupo {grupo_nuevo})"
 
     # Correo para el acudiente
     cuerpo_padre = f"""
@@ -733,7 +746,7 @@ def enviar_correo_reprogramacion(
                         <h2>Información Anterior</h2>
                         <div class="detail-row">
                             <span class="detail-label">Docente:</span>
-                            <span class="detail-value">{docente_antiguo} (Grado {grado_antiguo})</span>
+                            <span class="detail-value">{docente_antiguo} ({valor_grado_antiguo})</span>
                         </div>
                         <div class="detail-row">
                             <span class="detail-label">Horario:</span>
@@ -745,7 +758,7 @@ def enviar_correo_reprogramacion(
                         <h2>Nueva Información Asignada</h2>
                         <div class="detail-row">
                             <span class="detail-label">Docente:</span>
-                            <span class="detail-value">{docente_nuevo} (Grado {grado_nuevo})</span>
+                            <span class="detail-value">{docente_nuevo} ({valor_grado_nuevo})</span>
                         </div>
                         <div class="detail-row">
                             <span class="detail-label">Horario:</span>
@@ -814,7 +827,7 @@ def enviar_correo_reprogramacion(
                 <p>Hola <strong>{docente_nuevo}</strong>,</p>
                 <p>Se le ha asignado una nueva cita debido a la reprogramacion del estudiante <strong>{estudiante}</strong> con acudiente <strong>{acudiente}</strong> (Telefono: {telefono}).</p>
                 <p><strong>Horario:</strong> {horario_nuevo}</p>
-                <p><strong>Grado:</strong> {grado_nuevo} (Grupo {grupo_nuevo})</p>
+                <p><strong>Grado:</strong> {valor_grado_nuevo}</p>
             </body>
             </html>
             """
@@ -823,7 +836,7 @@ def enviar_correo_reprogramacion(
                 f"Hola {docente_nuevo},\n\n"
                 f"Se le ha asignado una nueva cita debido a la reprogramacion del estudiante {estudiante} con acudiente {acudiente} (Telefono: {telefono}).\n"
                 f"Horario: {horario_nuevo}\n"
-                f"Grado: {grado_nuevo} (Grupo {grupo_nuevo})\n"
+                f"Grado: {valor_grado_nuevo}\n"
             )
             emails_to_send.append((correo_docente_nuevo, f"Nueva Cita Agendada (Reprogramacion): {estudiante} | {horario_nuevo}", cuerpo_doc_nue, texto_doc_nue, "Sistema de Agendamientos"))
 
@@ -839,10 +852,10 @@ def enviar_correo_reprogramacion(
         f"Matricula Academica 2026 - 2027 del estudiante {estudiante} "
         f"ha sido reprogramado exitosamente.\n\n"
         f"Información Anterior:\n"
-        f"- Docente: {docente_antiguo} (Grado {grado_antiguo})\n"
+        f"- Docente: {docente_antiguo} ({valor_grado_antiguo})\n"
         f"- Horario: {horario_antiguo}\n\n"
         f"Nueva Información Asignada:\n"
-        f"- Docente: {docente_nuevo} (Grado {grado_nuevo})\n"
+        f"- Docente: {docente_nuevo} ({valor_grado_nuevo})\n"
         f"- Horario: {horario_nuevo}\n"
     )
 
@@ -897,7 +910,8 @@ def enviar_correos_nuevo_agendamiento(
     grupo: str,
     docente: str,
     horario: str,
-    telefono: str
+    telefono: str,
+    area: str = ""
 ) -> bool:
     """
     Envía la confirmación al acudiente y la notificación al docente en una única sesión SMTP
@@ -918,7 +932,8 @@ def enviar_correos_nuevo_agendamiento(
                 grupo=grupo,
                 docente=docente,
                 horario=horario,
-                telefono=telefono
+                telefono=telefono,
+                area=area
             )
             
             # Enviar al docente si tiene correo
@@ -932,7 +947,8 @@ def enviar_correos_nuevo_agendamiento(
                     grado=grado,
                     grupo=grupo,
                     horario=horario,
-                    telefono=telefono
+                    telefono=telefono,
+                    area=area
                 )
             
             if res_confirmacion and res_docente:

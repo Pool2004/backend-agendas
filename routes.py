@@ -146,7 +146,8 @@ def create_cita(cita: CitaSchema):
             "grupo": grado_info["grupo"],
             "docente": grado_info["docente"],
             "horario": horario,
-            "telefono": telefono
+            "telefono": telefono,
+            "area": grado_info["area"] if grado_info else ""
         },
         daemon=True
     )
@@ -294,7 +295,9 @@ def route_reprogramar_cita(payload: ReprogramarCitaSchema):
             "grupo_antiguo": docente_antiguo_info["grupo"] if docente_antiguo_info else "",
             "grupo_nuevo": docente_nuevo_info["grupo"],
             "horario_antiguo": horario_actual,
-            "horario_nuevo": horario_nuevo
+            "horario_nuevo": horario_nuevo,
+            "area_antigua": docente_antiguo_info["area"] if docente_antiguo_info else "",
+            "area_nueva": docente_nuevo_info["area"] if docente_nuevo_info else ""
         },
         daemon=True
     )
