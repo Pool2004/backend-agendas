@@ -86,6 +86,54 @@ def send_email_sendgrid(to, subject, html, text, sender_name="Comfandi Yumbo") -
         return False
 
 
+def formatear_horario_completo(horario: str):
+    """
+    Convierte un horario tipo "Mié 8/Jul 07:00" en:
+    dia_completo: "Miércoles, 8 de Julio de 2026"
+    hora_completa: "07:00"
+    """
+    partes = [p.strip() for p in horario.split(" ") if p.strip()]
+    if len(partes) < 3:
+        return horario, ""
+
+    dia_abrev = partes[0]
+    fecha_abrev = partes[1]
+    hora = partes[2]
+
+    dias_semana = {
+        "Lun": "Lunes", "Mar": "Martes", "Mié": "Miércoles",
+        "Jue": "Jueves", "Vie": "Viernes", "Sáb": "Sábado", "Dom": "Domingo"
+    }
+
+    meses = {
+        "Ene": "Enero", "Feb": "Febrero", "Mar": "Marzo",
+        "Abr": "Abril", "May": "Mayo", "Jun": "Junio",
+        "Jul": "Julio", "Ago": "Agosto", "Sep": "Septiembre",
+        "Oct": "Octubre", "Nov": "Noviembre", "Dic": "Diciembre"
+    }
+
+    dia_nombre = dias_semana.get(dia_abrev, dia_abrev)
+
+    partes_fecha = fecha_abrev.split("/")
+    if len(partes_fecha) == 2:
+        num_dia = partes_fecha[0]
+        mes_abrev = partes_fecha[1]
+        mes_nombre = meses.get(mes_abrev, mes_abrev)
+        dia_completo = f"{dia_nombre}, {num_dia} de {mes_nombre} de 2026"
+    else:
+        dia_completo = f"{dia_nombre} {fecha_abrev}"
+
+    return dia_completo, hora
+
+
+def formatear_horario_completo_string(horario: str) -> str:
+    dia_completo, hora = formatear_horario_completo(horario)
+    if hora:
+        return f"{dia_completo} a las {hora}"
+    return dia_completo
+
+
+
 def enviar_correo_confirmacion(
     destinatario: str,
     acudiente: str,
@@ -106,9 +154,7 @@ def enviar_correo_confirmacion(
     
 
     # Separar el dia y la hora del horario para mostrarlo de forma mas clara
-    partes_horario = horario.split(" ")
-    dia_cita = partes_horario[0] if len(partes_horario) > 0 else horario
-    hora_cita = partes_horario[1] if len(partes_horario) > 1 else ""
+    dia_cita, hora_cita = formatear_horario_completo(horario)
 
     # Construccion del cuerpo HTML del correo con todos los detalles del agendamiento
     cuerpo_html = f"""
@@ -212,13 +258,13 @@ def enviar_correo_confirmacion(
         <div class="container">
             <div class="header">
                 <h1>Confirmacion de Agendamiento de Matricula</h1>
-                <p>Sistema de Agendamiento Academico - Comfandi Sede Yumbo</p>
+                <p>Sistema de Agendamiento Academico - Comfandi E Yumbo</p>
             </div>
             <div class="body">
                 <p class="greeting">
                     Estimado/a <strong>{acudiente}</strong>,<br><br>
                     Le confirmamos que su agendamiento de cita para el proceso de
-                    <strong>Matricula Academica 2026</strong> ha sido registrado correctamente
+                    <strong>Matricula Academica 2026 - 2027</strong> ha sido registrado correctamente
                     en nuestro sistema. A continuacion encontrara los detalles de su cita:
                 </p>
 
@@ -257,7 +303,7 @@ def enviar_correo_confirmacion(
                 </div>
             </div>
             <div class="footer">
-                Comfandi E &mdash; Sede Yumbo &mdash; 2026<br>
+                Comfandi E &mdash; Yumbo &mdash; 2026<br>
                 Este es un mensaje automatico, por favor no responda a este correo.
             </div>
         </div>
@@ -304,9 +350,7 @@ def enviar_correo_docente(
     if not EMAIL_SENDER or not SENDGRID_API_KEY or not correo_docente:
         return False
 
-    partes_horario = horario.split(" ")
-    dia_cita = partes_horario[0] if len(partes_horario) > 0 else horario
-    hora_cita = partes_horario[1] if len(partes_horario) > 1 else ""
+    dia_cita, hora_cita = formatear_horario_completo(horario)
 
     cuerpo_html = f"""
     <!DOCTYPE html>
@@ -334,13 +378,13 @@ def enviar_correo_docente(
         <div class="container">
             <div class="header">
                 <h1>Nuevo Agendamiento Recibido</h1>
-                <p>Sistema de Agendamiento Academico - Comfandi Sede Yumbo</p>
+                <p>Sistema de Agendamiento Academico - Comfandi E Yumbo</p>
             </div>
             <div class="body">
                 <p class="greeting">
                     Hola <strong>{docente}</strong>,<br><br>
                     Se ha registrado un nuevo agendamiento para el proceso de
-                    <strong>Matricula Academica 2026</strong>. A continuacion, los detalles del estudiante y acudiente asignado a tu cargo:
+                    <strong>Matricula Academica 2026 - 2027</strong>. A continuacion, los detalles del estudiante y acudiente asignado a tu cargo:
                 </p>
 
                 <div class="detail-box">
@@ -414,7 +458,7 @@ def enviar_correo_cancelacion(
     """
     Envía correos electrónicos de cancelación al acudiente y al docente.
     """
-    
+    horario = formatear_horario_completo_string(horario)
 
     # Correo para el acudiente
     cuerpo_padre = f"""
@@ -474,7 +518,7 @@ def enviar_correo_cancelacion(
                 </div>
             </div>
             <div class="footer">
-                Comfandi E &mdash; Sede Yumbo &mdash; 2026<br>
+                Comfandi E &mdash; Yumbo &mdash; 2026<br>
                 Este es un mensaje automatico.
             </div>
         </div>
@@ -636,7 +680,8 @@ def enviar_correo_reprogramacion(
     """
     Envía correos electrónicos de reprogramación al acudiente y a los docentes correspondientes.
     """
-    
+    horario_antiguo = formatear_horario_completo_string(horario_antiguo)
+    horario_nuevo = formatear_horario_completo_string(horario_nuevo)
 
     # Correo para el acudiente
     cuerpo_padre = f"""

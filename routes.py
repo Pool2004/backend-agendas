@@ -154,7 +154,7 @@ def create_cita(cita: CitaSchema):
 
     return {
         "success": True,
-        "message": "Agendamiento registrado correctamente. Se ha enviado un correo de confirmacion a su direccion de correo electronico."
+        "message": "Agendamiento registrado correctamente. Se ha enviado un correo de confirmacion a su direccion de correo electronico (si no lo recibe, por favor revise la carpeta de correo no deseado o spam)."
     }
 
 @router.get("/citas", response_model=List[Dict[str, Any]])
