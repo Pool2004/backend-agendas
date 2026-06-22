@@ -192,18 +192,38 @@ def obtener_horarios_disponibles(grado_id: str) -> Dict[str, Any]:
         print(f"Error al obtener horarios disponibles desde la DB: {e}")
         return None
 
-def validar_credenciales_admin(usuario: str, contrasena: str) -> bool:
+def obtener_rol_admin(usuario: str, contrasena: str) -> str:
     """
-    Verifica si las credenciales de un administrativo existen y coinciden en Supabase.
+    Verifica si las credenciales coinciden y retorna el rol del usuario, o None si es inválido.
     """
     try:
         with get_db_connection() as conn:
             with conn.cursor() as cur:
                 cur.execute(
-                    "SELECT 1 FROM administrativos WHERE usuario = %s AND contrasena = %s LIMIT 1;",
+                    "SELECT rol FROM administrativos WHERE usuario = %s AND contrasena = %s LIMIT 1;",
                     (usuario.strip(), contrasena.strip())
                 )
-                return cur.fetchone() is not None
+                row = cur.fetchone()
+                if row:
+                    return row[0]
+                return None
     except Exception as e:
-        print(f"Error al validar credenciales de administrador en la DB: {e}")
+        print(f"Error al validar credenciales y obtener rol en la DB: {e}")
+        return None
+
+def reprogramar_cita(grado_id: str, horario_actual: str, horario_nuevo: str) -> bool:
+    """
+    Actualiza el horario de una cita específica de forma atómica en Supabase.
+    """
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE citas SET horario = %s WHERE docente_id = %s AND horario = %s;",
+                    (horario_nuevo, grado_id, horario_actual)
+                )
+                conn.commit()
+                return True
+    except Exception as e:
+        print(f"Error al reprogramar la cita en la DB: {e}")
         return False

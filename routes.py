@@ -12,7 +12,8 @@ from data import (
     verificar_cita_existente,
     crear_cita,
     eliminar_cita,
-    validar_credenciales_admin
+    obtener_rol_admin,
+    reprogramar_cita
 )
 from email_utils import enviar_correo_confirmacion, enviar_correo_docente
 
@@ -31,6 +32,12 @@ class CitaSchema(BaseModel):
 class LoginSchema(BaseModel):
     usuario: str = Field(..., min_length=1, description="Nombre de usuario del administrativo")
     contrasena: str = Field(..., min_length=1, description="Contraseña del administrativo")
+
+# Modelo de Pydantic para reprogramar citas
+class ReprogramarCitaSchema(BaseModel):
+    grado: str = Field(..., description="ID del docente/grado")
+    horario_actual: str = Field(..., description="Horario actual de la cita")
+    horario_nuevo: str = Field(..., description="Nuevo horario solicitado")
 
 # Expresión regular sencilla para validar el formato de correo electrónico sin dependencias adicionales
 EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
@@ -195,15 +202,47 @@ def delete_cita(grado: str, horario: str):
 @router.post("/login")
 def login(credentials: LoginSchema):
     """
-    Autentica a un administrativo con usuario y contraseña.
+    Autentica a un administrativo con usuario y contraseña y retorna su rol.
     """
-    if validar_credenciales_admin(credentials.usuario, credentials.contrasena):
+    rol = obtener_rol_admin(credentials.usuario, credentials.contrasena)
+    if rol:
         return {
             "success": True,
-            "message": "Inicio de sesión exitoso"
+            "message": "Inicio de sesión exitoso",
+            "rol": rol
         }
     else:
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail="Usuario o contraseña incorrectos"
         )
+
+@router.put("/citas/reprogramar")
+def route_reprogramar_cita(payload: ReprogramarCitaSchema):
+    """
+    Reprograma un agendamiento liberando el horario anterior y validando el nuevo.
+    """
+    grado_id = payload.grado.strip()
+    horario_actual = payload.horario_actual.strip()
+    horario_nuevo = payload.horario_nuevo.strip()
+    
+    # Validar disponibilidad
+    if verificar_cita_existente(grado_id, horario_nuevo):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"El horario '{horario_nuevo}' ya se encuentra reservado para este grado."
+        )
+        
+    # Intentar la reprogramación en base de datos
+    if not reprogramar_cita(grado_id, horario_actual, horario_nuevo):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno al intentar reprogramar la cita en la base de datos."
+        )
+        
+    # (Opcional) Se podría enviar correo aquí, pero la respuesta confirma el éxito de la transacción
+    
+    return {
+        "success": True,
+        "message": "La cita ha sido reprogramada con éxito."
+    }
