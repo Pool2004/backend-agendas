@@ -2,15 +2,15 @@ import smtplib
 import os
 from email.mime.multipart import MIMEMultipart
 from email.mime.text import MIMEText
+from dotenv import load_dotenv
+
+# Cargar variables de entorno del archivo .env
+load_dotenv()
 
 # Credenciales del servidor SMTP configuradas mediante variables de entorno.
-# Para usar Gmail, habilite "Contrasenas de aplicacion" en la cuenta y asigne:
-#   EMAIL_SENDER   : correo remitente (ej: notificaciones@comfandi.edu.co)
-#   EMAIL_PASSWORD : contrasena de aplicacion de 16 caracteres generada por Google
-# Si las variables no estan definidas, el envio se omite sin bloquear el flujo principal.
 EMAIL_SENDER = os.environ.get("EMAIL_SENDER", "")
 EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD", "")
-SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.gmail.com")
+SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.office365.com")  # default a Office 365
 SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
 
 def enviar_correo_confirmacion(
