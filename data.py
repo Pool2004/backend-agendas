@@ -8,6 +8,7 @@ from typing import List, Dict, Any
 load_dotenv()
 
 DATABASE_URL = os.getenv("DATABASE_URL")
+texto = "Hola"
 
 def get_db_connection():
     """
