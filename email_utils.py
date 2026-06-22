@@ -1,17 +1,90 @@
-import smtplib
 import os
-from email.mime.multipart import MIMEMultipart
-from email.mime.text import MIMEText
+import requests
 from dotenv import load_dotenv
 
 # Cargar variables de entorno del archivo .env
 load_dotenv()
 
-# Credenciales del servidor SMTP configuradas mediante variables de entorno.
+# Credenciales de SendGrid configuradas mediante variables de entorno.
 EMAIL_SENDER = os.environ.get("EMAIL_SENDER", "")
-EMAIL_PASSWORD = os.environ.get("EMAIL_PASSWORD", "")
-SMTP_HOST = os.environ.get("SMTP_HOST", "smtp.office365.com")  # default a Office 365
-SMTP_PORT = int(os.environ.get("SMTP_PORT", "587"))
+SENDGRID_API_KEY = os.environ.get("SENDGRID_API_KEY", "")
+
+def send_email_sendgrid(to, subject, html, text, sender_name="Comfandi Yumbo") -> bool:
+    """
+    Envia un correo electronico utilizando la API v3 de SendGrid con requests.
+    Soporta destinatarios individuales o multiples.
+    Retorna True si el envio fue exitoso, False en caso contrario.
+    """
+    if not SENDGRID_API_KEY:
+        print("[Correo] Error: SENDGRID_API_KEY no está configurada.")
+        return False
+    if not EMAIL_SENDER:
+        print("[Correo] Error: EMAIL_SENDER no está configurada.")
+        return False
+
+    # Formatear destinatarios
+    if isinstance(to, str):
+        destinatarios = [email.strip() for email in to.replace(";", ",").split(",") if email.strip()]
+    elif isinstance(to, (list, tuple, set)):
+        destinatarios = [str(email).strip() for email in to if str(email).strip()]
+    else:
+        destinatarios = [str(to).strip()]
+
+    if not destinatarios:
+        print("[Correo] Error: No se especificaron destinatarios válidos.")
+        return False
+
+    to_list = [{"email": email} for email in destinatarios]
+
+    # Payload para la API de SendGrid v3
+    payload = {
+        "personalizations": [
+            {
+                "to": to_list,
+                "subject": subject
+            }
+        ],
+        "from": {
+            "email": EMAIL_SENDER,
+            "name": sender_name
+        },
+        "content": []
+    }
+
+    if text:
+        payload["content"].append({
+            "type": "text/plain",
+            "value": text
+        })
+    if html:
+        payload["content"].append({
+            "type": "text/html",
+            "value": html
+        })
+
+    headers = {
+        "Authorization": f"Bearer {SENDGRID_API_KEY}",
+        "Content-Type": "application/json"
+    }
+
+    try:
+        response = requests.post(
+            "https://api.sendgrid.com/v3/mail/send",
+            json=payload,
+            headers=headers,
+            timeout=30
+        )
+        if 200 <= response.status_code < 300:
+            print(f"[Correo] Correo enviado exitosamente a {destinatarios} (Status: {response.status_code})")
+            return True
+        else:
+            print(f"[Correo] Error al enviar correo via SendGrid API. Status: {response.status_code}")
+            print(f"[Correo] Response Body: {response.text}")
+            return False
+    except Exception as e:
+        print(f"[Correo] Error inesperado al conectar con SendGrid API: {e}")
+        return False
+
 
 def enviar_correo_confirmacion(
     destinatario: str,
@@ -30,13 +103,7 @@ def enviar_correo_confirmacion(
 
     Retorna True si el envio fue exitoso, False en caso contrario.
     """
-    # Si no hay credenciales configuradas, omitir el envio silenciosamente
-    if not EMAIL_SENDER or not EMAIL_PASSWORD:
-        print(
-            "[Correo] Las variables EMAIL_SENDER y EMAIL_PASSWORD no estan configuradas. "
-            "El correo de confirmacion no fue enviado."
-        )
-        return False
+    
 
     # Separar el dia y la hora del horario para mostrarlo de forma mas clara
     partes_horario = horario.split(" ")
@@ -198,13 +265,7 @@ def enviar_correo_confirmacion(
     </html>
     """
 
-    # Construccion del mensaje MIME con soporte HTML y texto plano como alternativa
-    mensaje = MIMEMultipart("alternative")
-    mensaje["Subject"] = f"Confirmacion de Matricula - {estudiante} | Comfandi Yumbo 2026"
-    mensaje["From"] = f"Comfandi Yumbo <{EMAIL_SENDER}>"
-    mensaje["To"] = destinatario
-
-    # Parte de texto plano como respaldo para clientes que no soporten HTML
+    asunto = f"Confirmacion de Matricula - {estudiante} | Comfandi Yumbo 2026"
     texto_plano = (
         f"Confirmacion de Agendamiento de Matricula - Comfandi Yumbo 2026\n\n"
         f"Acudiente: {acudiente}\n"
@@ -216,30 +277,13 @@ def enviar_correo_confirmacion(
         f"Por favor asista puntualmente con la documentacion requerida."
     )
 
-    mensaje.attach(MIMEText(texto_plano, "plain", "utf-8"))
-    mensaje.attach(MIMEText(cuerpo_html, "html", "utf-8"))
-
-    try:
-        if servidor:
-            servidor.sendmail(EMAIL_SENDER, destinatario, mensaje.as_string())
-        else:
-            with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as s:
-                s.ehlo()
-                s.starttls()
-                s.ehlo()
-                s.login(EMAIL_SENDER, EMAIL_PASSWORD)
-                s.sendmail(EMAIL_SENDER, destinatario, mensaje.as_string())
-        print(f"[Correo] Confirmacion enviada exitosamente a: {destinatario}")
-        return True
-    except smtplib.SMTPAuthenticationError:
-        print("[Correo] Error de autenticacion SMTP. Verifique EMAIL_SENDER y EMAIL_PASSWORD.")
-        return False
-    except smtplib.SMTPException as e:
-        print(f"[Correo] Error SMTP al enviar el correo: {e}")
-        return False
-    except Exception as e:
-        print(f"[Correo] Error inesperado al enviar correo: {e}")
-        return False
+    return send_email_sendgrid(
+        to=destinatario,
+        subject=asunto,
+        html=cuerpo_html,
+        text=texto_plano,
+        sender_name="Comfandi Yumbo"
+    )
 
 
 def enviar_correo_docente(
@@ -257,7 +301,7 @@ def enviar_correo_docente(
     Envia un correo electronico de notificacion al docente con los detalles
     del nuevo agendamiento de matricula academica.
     """
-    if not EMAIL_SENDER or not EMAIL_PASSWORD or not correo_docente:
+    if not EMAIL_SENDER or not SENDGRID_API_KEY or not correo_docente:
         return False
 
     partes_horario = horario.split(" ")
@@ -336,11 +380,7 @@ def enviar_correo_docente(
     </html>
     """
 
-    mensaje = MIMEMultipart("alternative")
-    mensaje["Subject"] = f"Nuevo Agendamiento: {estudiante} | {dia_cita} {hora_cita}"
-    mensaje["From"] = f"Sistema de Agendamientos <{EMAIL_SENDER}>"
-    mensaje["To"] = correo_docente
-
+    asunto = f"Nuevo Agendamiento: {estudiante} | {dia_cita} {hora_cita}"
     texto_plano = (
         f"Nuevo Agendamiento de Matricula - Comfandi Yumbo\n\n"
         f"Dia: {dia_cita}\n"
@@ -351,24 +391,13 @@ def enviar_correo_docente(
         f"Telefono: {telefono}\n"
     )
 
-    mensaje.attach(MIMEText(texto_plano, "plain", "utf-8"))
-    mensaje.attach(MIMEText(cuerpo_html, "html", "utf-8"))
-
-    try:
-        if servidor:
-            servidor.sendmail(EMAIL_SENDER, correo_docente, mensaje.as_string())
-        else:
-            with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as s:
-                s.ehlo()
-                s.starttls()
-                s.ehlo()
-                s.login(EMAIL_SENDER, EMAIL_PASSWORD)
-                s.sendmail(EMAIL_SENDER, correo_docente, mensaje.as_string())
-        print(f"[Correo] Notificacion enviada exitosamente al docente: {correo_docente}")
-        return True
-    except Exception as e:
-        print(f"[Correo] Error al enviar notificacion al docente {correo_docente}: {e}")
-        return False
+    return send_email_sendgrid(
+        to=correo_docente,
+        subject=asunto,
+        html=cuerpo_html,
+        text=texto_plano,
+        sender_name="Sistema de Agendamientos"
+    )
 
 
 def enviar_correo_cancelacion(
@@ -385,15 +414,9 @@ def enviar_correo_cancelacion(
     """
     Envía correos electrónicos de cancelación al acudiente y al docente.
     """
-    if not EMAIL_SENDER or not EMAIL_PASSWORD:
-        return False
+    
 
     # Correo para el acudiente
-    msg_padre = MIMEMultipart("alternative")
-    msg_padre["Subject"] = f"Cancelacion de Cita - {estudiante} | Comfandi Yumbo 2026"
-    msg_padre["From"] = f"Comfandi Yumbo <{EMAIL_SENDER}>"
-    msg_padre["To"] = destinatario_padre
-
     cuerpo_padre = f"""
     <!DOCTYPE html>
     <html lang="es">
@@ -458,16 +481,10 @@ def enviar_correo_cancelacion(
     </body>
     </html>
     """
-    msg_padre.attach(MIMEText(cuerpo_padre, "html", "utf-8"))
 
     # Correo para el docente
-    msg_docente = None
+    cuerpo_docente = None
     if correo_docente:
-        msg_docente = MIMEMultipart("alternative")
-        msg_docente["Subject"] = f"Cancelacion de Cita: {estudiante} | {horario}"
-        msg_docente["From"] = f"Sistema de Agendamientos <{EMAIL_SENDER}>"
-        msg_docente["To"] = correo_docente
-
         cuerpo_docente = f"""
         <!DOCTYPE html>
         <html lang="es">
@@ -531,27 +548,73 @@ def enviar_correo_cancelacion(
         </body>
         </html>
         """
-        msg_docente.attach(MIMEText(cuerpo_docente, "html", "utf-8"))
 
-    try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as servidor:
-            servidor.ehlo()
-            servidor.starttls()
-            servidor.ehlo()
-            servidor.login(EMAIL_SENDER, EMAIL_PASSWORD)
-            
-            # Enviar a padre
-            servidor.sendmail(EMAIL_SENDER, destinatario_padre, msg_padre.as_string())
+    import time
+    max_intentos = 3
+    res_padre = False
+
+    asunto_padre = f"Cancelacion de Cita - {estudiante} | Comfandi Yumbo 2026"
+    texto_padre = (
+        f"Cancelacion de Agendamiento de Matricula - Comfandi E Yumbo\n\n"
+        f"Estimado/a {acudiente},\n\n"
+        f"Le informamos que el agendamiento de cita para el proceso de "
+        f"Matricula Academica 2026 - 2027 ha sido cancelado.\n"
+        f"El horario previamente seleccionado ha quedado libre.\n\n"
+        f"Detalles de la Cita Cancelada:\n"
+        f"- Estudiante: {estudiante}\n"
+        f"- Grado / Grupo: Grado {grado} (Grupo {grupo})\n"
+        f"- Docente encargado: {docente}\n"
+        f"- Horario: {horario}\n"
+    )
+
+    for intento in range(1, max_intentos + 1):
+        if send_email_sendgrid(
+            to=destinatario_padre,
+            subject=asunto_padre,
+            html=cuerpo_padre,
+            text=texto_padre,
+            sender_name="Comfandi Yumbo"
+        ):
             print(f"[Correo] Notificacion de cancelacion enviada a acudiente: {destinatario_padre}")
-            
-            # Enviar a docente
-            if msg_docente and correo_docente:
-                servidor.sendmail(EMAIL_SENDER, correo_docente, msg_docente.as_string())
+            res_padre = True
+            break
+        else:
+            print(f"[Correo] Intento {intento} fallido al enviar cancelacion a acudiente")
+            if intento < max_intentos:
+                time.sleep(2)
+
+    res_docente = True
+    if correo_docente and cuerpo_docente:
+        res_docente = False
+        asunto_docente = f"Cancelacion de Cita: {estudiante} | {horario}"
+        texto_docente = (
+            f"Cita Cancelada - Sistema de Agendamiento Academico - Comfandi E Yumbo\n\n"
+            f"Hola {docente},\n\n"
+            f"Se ha cancelado la cita programada con el acudiente del estudiante {estudiante}.\n"
+            f"El horario ha quedado liberado.\n\n"
+            f"Detalles de la Cita Cancelada:\n"
+            f"- Estudiante: {estudiante}\n"
+            f"- Acudiente: {acudiente}\n"
+            f"- Horario: {horario}\n"
+            f"- Telefono: {telefono}\n"
+        )
+        for intento in range(1, max_intentos + 1):
+            if send_email_sendgrid(
+                to=correo_docente,
+                subject=asunto_docente,
+                html=cuerpo_docente,
+                text=texto_docente,
+                sender_name="Sistema de Agendamientos"
+            ):
                 print(f"[Correo] Notificacion de cancelacion enviada a docente: {correo_docente}")
-        return True
-    except Exception as e:
-        print(f"[Correo] Error al enviar correos de cancelacion: {e}")
-        return False
+                res_docente = True
+                break
+            else:
+                print(f"[Correo] Intento {intento} fallido al enviar cancelacion a docente")
+                if intento < max_intentos:
+                    time.sleep(2)
+
+    return res_padre and res_docente
 
 
 def enviar_correo_reprogramacion(
@@ -573,15 +636,9 @@ def enviar_correo_reprogramacion(
     """
     Envía correos electrónicos de reprogramación al acudiente y a los docentes correspondientes.
     """
-    if not EMAIL_SENDER or not EMAIL_PASSWORD:
-        return False
+    
 
     # Correo para el acudiente
-    msg_padre = MIMEMultipart("alternative")
-    msg_padre["Subject"] = f"Reprogramacion de Cita - {estudiante} | Comfandi Yumbo 2026"
-    msg_padre["From"] = f"Comfandi Yumbo <{EMAIL_SENDER}>"
-    msg_padre["To"] = destinatario_padre
-
     cuerpo_padre = f"""
     <!DOCTYPE html>
     <html lang="es">
@@ -657,17 +714,12 @@ def enviar_correo_reprogramacion(
     </body>
     </html>
     """
-    msg_padre.attach(MIMEText(cuerpo_padre, "html", "utf-8"))
 
     # Correos para docentes
     emails_to_send = []
 
     # Si es el mismo docente y el mismo correo, enviamos un solo correo informando el cambio de horario
     if correo_docente_antiguo == correo_docente_nuevo and correo_docente_antiguo:
-        msg_doc = MIMEMultipart("alternative")
-        msg_doc["Subject"] = f"Reprogramacion de Cita: {estudiante} | {horario_nuevo}"
-        msg_doc["From"] = f"Sistema de Agendamientos <{EMAIL_SENDER}>"
-        msg_doc["To"] = correo_docente_antiguo
         cuerpo_doc = f"""
         <html>
         <body>
@@ -679,15 +731,17 @@ def enviar_correo_reprogramacion(
         </body>
         </html>
         """
-        msg_doc.attach(MIMEText(cuerpo_doc, "html", "utf-8"))
-        emails_to_send.append((correo_docente_antiguo, msg_doc))
+        texto_doc = (
+            f"Cita Reprogramada\n\n"
+            f"Hola {docente_antiguo},\n\n"
+            f"Le informamos que la cita del estudiante {estudiante} con acudiente {acudiente} ha sido reprogramada.\n"
+            f"Horario anterior: {horario_antiguo}\n"
+            f"Nuevo horario: {horario_nuevo}\n"
+        )
+        emails_to_send.append((correo_docente_antiguo, f"Reprogramacion de Cita: {estudiante} | {horario_nuevo}", cuerpo_doc, texto_doc, "Sistema de Agendamientos"))
     else:
         # Docentes diferentes. Notificar a docente antiguo que se canceló/movió, y a docente nuevo que se agendó.
         if correo_docente_antiguo:
-            msg_doc_ant = MIMEMultipart("alternative")
-            msg_doc_ant["Subject"] = f"Cancelacion de Cita (Movida): {estudiante} | {horario_antiguo}"
-            msg_doc_ant["From"] = f"Sistema de Agendamientos <{EMAIL_SENDER}>"
-            msg_doc_ant["To"] = correo_docente_antiguo
             cuerpo_doc_ant = f"""
             <html>
             <body>
@@ -697,14 +751,14 @@ def enviar_correo_reprogramacion(
             </body>
             </html>
             """
-            msg_doc_ant.attach(MIMEText(cuerpo_doc_ant, "html", "utf-8"))
-            emails_to_send.append((correo_docente_antiguo, msg_doc_ant))
+            texto_doc_ant = (
+                f"Cita Cancelada / Reasignada\n\n"
+                f"Hola {docente_antiguo},\n\n"
+                f"La cita programada con el estudiante {estudiante} y acudiente {acudiente} para el horario {horario_antiguo} ha sido cancelada o reasignada a otro docente. Este horario ha quedado libre.\n"
+            )
+            emails_to_send.append((correo_docente_antiguo, f"Cancelacion de Cita (Movida): {estudiante} | {horario_antiguo}", cuerpo_doc_ant, texto_doc_ant, "Sistema de Agendamientos"))
         
         if correo_docente_nuevo:
-            msg_doc_nue = MIMEMultipart("alternative")
-            msg_doc_nue["Subject"] = f"Nueva Cita Agendada (Reprogramacion): {estudiante} | {horario_nuevo}"
-            msg_doc_nue["From"] = f"Sistema de Agendamientos <{EMAIL_SENDER}>"
-            msg_doc_nue["To"] = correo_docente_nuevo
             cuerpo_doc_nue = f"""
             <html>
             <body>
@@ -716,28 +770,74 @@ def enviar_correo_reprogramacion(
             </body>
             </html>
             """
-            msg_doc_nue.attach(MIMEText(cuerpo_doc_nue, "html", "utf-8"))
-            emails_to_send.append((correo_docente_nuevo, msg_doc_nue))
+            texto_doc_nue = (
+                f"Nueva Cita Asignada\n\n"
+                f"Hola {docente_nuevo},\n\n"
+                f"Se le ha asignado una nueva cita debido a la reprogramacion del estudiante {estudiante} con acudiente {acudiente} (Telefono: {telefono}).\n"
+                f"Horario: {horario_nuevo}\n"
+                f"Grado: {grado_nuevo} (Grupo {grupo_nuevo})\n"
+            )
+            emails_to_send.append((correo_docente_nuevo, f"Nueva Cita Agendada (Reprogramacion): {estudiante} | {horario_nuevo}", cuerpo_doc_nue, texto_doc_nue, "Sistema de Agendamientos"))
 
-    try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT) as servidor:
-            servidor.ehlo()
-            servidor.starttls()
-            servidor.ehlo()
-            servidor.login(EMAIL_SENDER, EMAIL_PASSWORD)
-            
-            # Enviar a padre
-            servidor.sendmail(EMAIL_SENDER, destinatario_padre, msg_padre.as_string())
+    import time
+    max_intentos = 3
+    res_padre = False
+
+    asunto_padre = f"Reprogramacion de Cita - {estudiante} | Comfandi Yumbo 2026"
+    texto_padre = (
+        f"Reprogramacion de Agendamiento de Cita - Comfandi E Yumbo 2026\n\n"
+        f"Estimado/a {acudiente},\n\n"
+        f"Le confirmamos que su agendamiento de cita para el proceso de "
+        f"Matricula Academica 2026 - 2027 del estudiante {estudiante} "
+        f"ha sido reprogramado exitosamente.\n\n"
+        f"Información Anterior:\n"
+        f"- Docente: {docente_antiguo} (Grado {grado_antiguo})\n"
+        f"- Horario: {horario_antiguo}\n\n"
+        f"Nueva Información Asignada:\n"
+        f"- Docente: {docente_nuevo} (Grado {grado_nuevo})\n"
+        f"- Horario: {horario_nuevo}\n"
+    )
+
+    # 1. Enviar a padre
+    for intento in range(1, max_intentos + 1):
+        if send_email_sendgrid(
+            to=destinatario_padre,
+            subject=asunto_padre,
+            html=cuerpo_padre,
+            text=texto_padre,
+            sender_name="Comfandi Yumbo"
+        ):
             print(f"[Correo] Notificacion de reprogramacion enviada a acudiente: {destinatario_padre}")
-            
-            # Enviar a docentes
-            for dest_email, msg_obj in emails_to_send:
-                servidor.sendmail(EMAIL_SENDER, dest_email, msg_obj.as_string())
+            res_padre = True
+            break
+        else:
+            print(f"[Correo] Intento {intento} fallido al enviar reprogramacion a acudiente")
+            if intento < max_intentos:
+                time.sleep(2)
+
+    # 2. Enviar a docentes
+    res_docentes = True
+    for dest_email, sub, html_c, text_c, s_name in emails_to_send:
+        sent_ok = False
+        for intento in range(1, max_intentos + 1):
+            if send_email_sendgrid(
+                to=dest_email,
+                subject=sub,
+                html=html_c,
+                text=text_c,
+                sender_name=s_name
+            ):
                 print(f"[Correo] Notificacion de reprogramacion enviada a docente: {dest_email}")
-        return True
-    except Exception as e:
-        print(f"[Correo] Error al enviar correos de reprogramacion: {e}")
-        return False
+                sent_ok = True
+                break
+            else:
+                print(f"[Correo] Intento {intento} fallido al enviar reprogramacion a docente: {dest_email}")
+                if intento < max_intentos:
+                    time.sleep(2)
+        if not sent_ok:
+            res_docentes = False
+
+    return res_padre and res_docentes
 
 
 def enviar_correos_nuevo_agendamiento(
@@ -755,19 +855,14 @@ def enviar_correos_nuevo_agendamiento(
     Envía la confirmación al acudiente y la notificación al docente en una única sesión SMTP
     para evitar colisiones de conexión/login con Office 365.
     """
-    if not EMAIL_SENDER or not EMAIL_PASSWORD:
-        print("[Correo] Falta configuración de EMAIL_SENDER o EMAIL_PASSWORD.")
-        return False
+    
 
-    try:
-        with smtplib.SMTP(SMTP_HOST, SMTP_PORT, timeout=15) as s:
-            s.ehlo()
-            s.starttls()
-            s.ehlo()
-            s.login(EMAIL_SENDER, EMAIL_PASSWORD)
-            
+    import time
+    max_intentos = 3
+    for intento in range(1, max_intentos + 1):
+        try:
             # Enviar al acudiente
-            enviar_correo_confirmacion(
+            res_confirmacion = enviar_correo_confirmacion(
                 destinatario=correo_padre,
                 acudiente=acudiente,
                 estudiante=estudiante,
@@ -775,13 +870,13 @@ def enviar_correos_nuevo_agendamiento(
                 grupo=grupo,
                 docente=docente,
                 horario=horario,
-                telefono=telefono,
-                servidor=s
+                telefono=telefono
             )
             
             # Enviar al docente si tiene correo
+            res_docente = True
             if correo_docente:
-                enviar_correo_docente(
+                res_docente = enviar_correo_docente(
                     correo_docente=correo_docente,
                     docente=docente,
                     acudiente=acudiente,
@@ -789,11 +884,16 @@ def enviar_correos_nuevo_agendamiento(
                     grado=grado,
                     grupo=grupo,
                     horario=horario,
-                    telefono=telefono,
-                    servidor=s
+                    telefono=telefono
                 )
-        return True
-    except Exception as e:
-        print(f"[Correo] Error en la sesión SMTP combinada: {e}")
-        return False
+            
+            if res_confirmacion and res_docente:
+                return True
+            else:
+                raise Exception("Fallo al enviar alguno de los correos (confirmacion o docente)")
+        except Exception as e:
+            print(f"[Correo] Intento {intento} fallido en envio SendGrid combinado: {e}")
+            if intento < max_intentos:
+                time.sleep(2)
+    return False
 
