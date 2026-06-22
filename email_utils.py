@@ -453,12 +453,15 @@ def enviar_correo_cancelacion(
     grupo: str,
     docente: str,
     horario: str,
-    telefono: str
+    telefono: str,
+    area: str = ""
 ) -> bool:
     """
     Envía correos electrónicos de cancelación al acudiente y al docente.
     """
     horario = formatear_horario_completo_string(horario)
+    label_grado_grupo = "Área" if area else "Grado / Grupo"
+    valor_grado_grupo = area if area else f"Grado {grado} (Grupo {grupo})"
 
     # Correo para el acudiente
     cuerpo_padre = f"""
@@ -504,8 +507,8 @@ def enviar_correo_cancelacion(
                         <span class="detail-value">{estudiante}</span>
                     </div>
                     <div class="detail-row">
-                        <span class="detail-label">Grado / Grupo:</span>
-                        <span class="detail-value">Grado {grado} (Grupo {grupo})</span>
+                        <span class="detail-label">{label_grado_grupo}:</span>
+                        <span class="detail-value">{valor_grado_grupo}</span>
                     </div>
                     <div class="detail-row">
                         <span class="detail-label">Docente encargado:</span>
@@ -606,7 +609,7 @@ def enviar_correo_cancelacion(
         f"El horario previamente seleccionado ha quedado libre.\n\n"
         f"Detalles de la Cita Cancelada:\n"
         f"- Estudiante: {estudiante}\n"
-        f"- Grado / Grupo: Grado {grado} (Grupo {grupo})\n"
+        f"- {label_grado_grupo}: {valor_grado_grupo}\n"
         f"- Docente encargado: {docente}\n"
         f"- Horario: {horario}\n"
     )

@@ -204,7 +204,8 @@ def delete_cita(grado: str, horario: str):
                 "grupo": grupo_str,
                 "docente": docente_str,
                 "horario": horario_str,
-                "telefono": cita_info["telefono"]
+                "telefono": cita_info["telefono"],
+                "area": grado_info["area"] if grado_info else ""
             },
             daemon=True
         )
