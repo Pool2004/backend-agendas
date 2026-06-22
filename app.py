@@ -1,6 +1,6 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from backend.routes import router
+from routes import router
 
 # Inicialización de la aplicación FastAPI con metadatos descriptivos
 app = FastAPI(
