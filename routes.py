@@ -4,7 +4,7 @@ from fastapi import APIRouter, HTTPException, status
 from pydantic import BaseModel, Field
 from typing import List, Dict, Any
 
-from backend.data import (
+from data import (
     obtener_todos_los_grados,
     obtener_horarios_disponibles,
     leer_citas,
@@ -14,7 +14,7 @@ from backend.data import (
     eliminar_cita,
     validar_credenciales_admin
 )
-from backend.email_utils import enviar_correo_confirmacion, enviar_correo_docente
+from email_utils import enviar_correo_confirmacion, enviar_correo_docente
 
 router = APIRouter(prefix="/api")
 
