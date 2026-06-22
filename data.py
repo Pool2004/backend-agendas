@@ -98,14 +98,21 @@ def buscar_grado_por_id(grado_id: str) -> Dict[str, Any]:
         return None
 
 
-def leer_citas() -> List[Dict[str, Any]]:
+def leer_citas(correo: str = None) -> List[Dict[str, Any]]:
     """
-    Retorna la lista completa de todas las citas agendadas desde Supabase.
+    Retorna la lista completa de todas las citas agendadas desde Supabase,
+    opcionalmente filtrada por correo electrónico.
     """
     try:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
-                cur.execute("SELECT acudiente, telefono, correo, estudiante, docente_id AS grado, horario FROM citas;")
+                if correo:
+                    cur.execute(
+                        "SELECT acudiente, telefono, correo, estudiante, docente_id AS grado, horario FROM citas WHERE correo = %s;",
+                        (correo.strip(),)
+                    )
+                else:
+                    cur.execute("SELECT acudiente, telefono, correo, estudiante, docente_id AS grado, horario FROM citas;")
                 return [dict(row) for row in cur.fetchall()]
     except Exception as e:
         print(f"Error al leer citas desde la DB: {e}")

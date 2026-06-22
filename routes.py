@@ -169,11 +169,11 @@ def create_cita(cita: CitaSchema):
     }
 
 @router.get("/citas", response_model=List[Dict[str, Any]])
-def list_citas():
+def list_citas(correo: str = None):
     """
-    Retorna la lista completa de todas las citas agendadas y guardadas.
+    Retorna la lista de todas las citas agendadas, opcionalmente filtradas por correo electrónico.
     """
-    return leer_citas()
+    return leer_citas(correo)
 
 @router.delete("/citas")
 def delete_cita(grado: str, horario: str):
