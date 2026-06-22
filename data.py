@@ -119,6 +119,25 @@ def leer_citas(correo: str = None) -> List[Dict[str, Any]]:
         return []
 
 
+def obtener_cita_por_horario(grado_id: str, horario: str) -> Dict[str, Any]:
+    """
+    Recupera los detalles de una cita específica por docente y horario.
+    Retorna None si no existe.
+    """
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute(
+                    "SELECT acudiente, telefono, correo, estudiante, docente_id AS grado, horario FROM citas WHERE docente_id = %s AND horario = %s LIMIT 1;",
+                    (grado_id, horario)
+                )
+                row = cur.fetchone()
+                return dict(row) if row else None
+    except Exception as e:
+        print(f"Error al obtener cita por horario en la DB: {e}")
+        return None
+
+
 def verificar_cita_existente(grado_id: str, horario: str) -> bool:
     """
     Verifica si ya existe un agendamiento para ese docente y horario en la base de datos.

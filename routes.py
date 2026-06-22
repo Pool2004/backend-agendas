@@ -13,9 +13,15 @@ from data import (
     crear_cita,
     eliminar_cita,
     obtener_rol_admin,
-    reprogramar_cita
+    reprogramar_cita,
+    obtener_cita_por_horario
 )
-from email_utils import enviar_correo_confirmacion, enviar_correo_docente
+from email_utils import (
+    enviar_correo_confirmacion,
+    enviar_correo_docente,
+    enviar_correo_cancelacion,
+    enviar_correo_reprogramacion
+)
 
 router = APIRouter(prefix="/api")
 
@@ -189,11 +195,37 @@ def delete_cita(grado: str, horario: str):
             detail="No se encontró ningún agendamiento para el grado y horario especificados."
         )
 
+    # Obtener detalles de la cita y docente antes de eliminar
+    cita_info = obtener_cita_por_horario(grado_id, horario_str)
+
     if not eliminar_cita(grado_id, horario_str):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
             detail="Error interno al intentar guardar los cambios en la base de datos."
         )
+
+    if cita_info:
+        grado_info = buscar_grado_por_id(grado_id)
+        grupo_str = grado_info["grupo"] if grado_info else ""
+        docente_str = grado_info["docente"] if grado_info else ""
+        correo_docente = grado_info.get("correo") if grado_info else None
+        
+        hilo_correo = threading.Thread(
+            target=enviar_correo_cancelacion,
+            kwargs={
+                "destinatario_padre": cita_info["correo"],
+                "correo_docente": correo_docente,
+                "acudiente": cita_info["acudiente"],
+                "estudiante": cita_info["estudiante"],
+                "grado": grado_id,
+                "grupo": grupo_str,
+                "docente": docente_str,
+                "horario": horario_str,
+                "telefono": cita_info["telefono"]
+            },
+            daemon=True
+        )
+        hilo_correo.start()
 
     return {
         "success": True,
@@ -221,18 +253,37 @@ def login(credentials: LoginSchema):
 @router.put("/citas/reprogramar")
 def route_reprogramar_cita(payload: ReprogramarCitaSchema):
     """
-    Reprograma un agendamiento liberando el horario anterior y validando el nuevo.
+    Reprograma un agendamiento liberando el horario anterior, reasignando docente y horario,
+    y enviando notificaciones por correo electrónico al acudiente y docentes involucrados.
     """
     grado_actual = payload.grado_actual.strip()
     grado_nuevo = payload.grado_nuevo.strip()
     horario_actual = payload.horario_actual.strip()
     horario_nuevo = payload.horario_nuevo.strip()
     
-    # Validar disponibilidad
+    # Validar disponibilidad del nuevo horario para el docente/grado destino
     if verificar_cita_existente(grado_nuevo, horario_nuevo):
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
             detail=f"El horario '{horario_nuevo}' ya se encuentra reservado para este grado."
+        )
+        
+    # Obtener detalles de la cita antes de reprogramar
+    cita_info = obtener_cita_por_horario(grado_actual, horario_actual)
+    if not cita_info:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No se encontró el agendamiento original a reprogramar."
+        )
+        
+    # Obtener información de los docentes involucrados
+    docente_antiguo_info = buscar_grado_por_id(grado_actual)
+    docente_nuevo_info = buscar_grado_por_id(grado_nuevo)
+    
+    if not docente_nuevo_info:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="El nuevo docente/grado seleccionado no existe."
         )
         
     # Intentar la reprogramación en base de datos
@@ -242,9 +293,31 @@ def route_reprogramar_cita(payload: ReprogramarCitaSchema):
             detail="Error interno al intentar reprogramar la cita en la base de datos."
         )
         
-    # (Opcional) Se podría enviar correo aquí, pero la respuesta confirma el éxito de la transacción
+    # Enviar notificaciones por correo en segundo plano
+    hilo_correo = threading.Thread(
+        target=enviar_correo_reprogramacion,
+        kwargs={
+            "destinatario_padre": cita_info["correo"],
+            "correo_docente_antiguo": docente_antiguo_info.get("correo") if docente_antiguo_info else None,
+            "correo_docente_nuevo": docente_nuevo_info.get("correo"),
+            "acudiente": cita_info["acudiente"],
+            "estudiante": cita_info["estudiante"],
+            "telefono": cita_info["telefono"],
+            "docente_antiguo": docente_antiguo_info["docente"] if docente_antiguo_info else "Docente Anterior",
+            "docente_nuevo": docente_nuevo_info["docente"],
+            "grado_antiguo": grado_actual,
+            "grado_nuevo": grado_nuevo,
+            "grupo_antiguo": docente_antiguo_info["grupo"] if docente_antiguo_info else "",
+            "grupo_nuevo": docente_nuevo_info["grupo"],
+            "horario_antiguo": horario_actual,
+            "horario_nuevo": horario_nuevo
+        },
+        daemon=True
+    )
+    hilo_correo.start()
     
     return {
         "success": True,
         "message": "La cita ha sido reprogramada con éxito."
     }
+
