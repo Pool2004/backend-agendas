@@ -144,7 +144,7 @@ def enviar_correo_confirmacion(
         <div class="container">
             <div class="header">
                 <h1>Confirmacion de Agendamiento de Matricula</h1>
-                <p>Sistema de Agendamiento Academico - Comfandi Sede Yumbo</p>
+                <p>Sistema de Agendamiento Academico - Comfandi E Yumbo</p>
             </div>
             <div class="body">
                 <p class="greeting">
@@ -189,7 +189,7 @@ def enviar_correo_confirmacion(
                 </div>
             </div>
             <div class="footer">
-                Comfandi E &mdash; Sede Yumbo &mdash; 2026<br>
+                Comfandi E &mdash; Yumbo &mdash; 2026<br>
                 Este es un mensaje automatico, por favor no responda a este correo.
             </div>
         </div>
@@ -285,13 +285,13 @@ def enviar_correo_docente(
         <div class="container">
             <div class="header">
                 <h1>Nuevo Agendamiento Recibido</h1>
-                <p>Sistema de Agendamiento Academico - Comfandi Sede Yumbo</p>
+                <p>Sistema de Agendamiento Academico - Comfandi E Yumbo</p>
             </div>
             <div class="body">
                 <p class="greeting">
                     Hola <strong>{docente}</strong>,<br><br>
                     Se ha registrado un nuevo agendamiento para el proceso de
-                    <strong>Matricula Academica 2026</strong>. A continuacion, los detalles del estudiante y acudiente asignado a tu cargo:
+                    <strong>Matricula Academica 2026 - 2027</strong>. A continuacion, los detalles del estudiante y acudiente asignado a tu cargo:
                 </p>
 
                 <div class="detail-box">
@@ -323,7 +323,7 @@ def enviar_correo_docente(
                 </div>
             </div>
             <div class="footer">
-                Comfandi E &mdash; Sede Yumbo &mdash; 2026<br>
+                Comfandi E &mdash; Comfandi E Yumbo &mdash; 2026<br>
                 Este es un mensaje automatico.
             </div>
         </div>
@@ -412,13 +412,13 @@ def enviar_correo_cancelacion(
         <div class="container">
             <div class="header">
                 <h1>Cancelacion de Agendamiento de Matricula</h1>
-                <p>Sistema de Agendamiento Academico - Comfandi Sede Yumbo</p>
+                <p>Sistema de Agendamiento Academico - Comfandi E Yumbo</p>
             </div>
             <div class="body">
                 <p class="greeting">
                     Estimado/a <strong>{acudiente}</strong>,<br><br>
                     Le informamos que el agendamiento de cita para el proceso de
-                    <strong>Matricula Academica 2026</strong> ha sido <strong>cancelado</strong>.
+                    <strong>Matricula Academica 2026 - 2027</strong> ha sido <strong>cancelado</strong>.
                     El horario previamente seleccionado ha quedado libre. A continuacion, los detalles del agendamiento cancelado:
                 </p>
 
@@ -486,7 +486,7 @@ def enviar_correo_cancelacion(
             <div class="container">
                 <div class="header">
                     <h1>Cita Cancelada</h1>
-                    <p>Sistema de Agendamiento Academico - Comfandi Sede Yumbo</p>
+                    <p>Sistema de Agendamiento Academico - Comfandi E Yumbo</p>
                 </div>
                 <div class="body">
                     <p class="greeting">
@@ -516,7 +516,7 @@ def enviar_correo_cancelacion(
                     </div>
                 </div>
                 <div class="footer">
-                    Comfandi E &mdash; Sede Yumbo &mdash; 2026<br>
+                    Comfandi E &mdash; Yumbo &mdash; 2026<br>
                     Este es un mensaje automatico.
                 </div>
             </div>
@@ -605,13 +605,13 @@ def enviar_correo_reprogramacion(
         <div class="container">
             <div class="header">
                 <h1>Reprogramacion de Agendamiento de Matricula</h1>
-                <p>Sistema de Agendamiento Academico - Comfandi Sede Yumbo</p>
+                <p>Sistema de Agendamiento Academico - Comfandi E Yumbo</p>
             </div>
             <div class="body">
                 <p class="greeting">
                     Estimado/a <strong>{acudiente}</strong>,<br><br>
                     Le confirmamos que su agendamiento de cita para el proceso de
-                    <strong>Matricula Academica 2026</strong> del estudiante <strong>{estudiante}</strong>
+                    <strong>Matricula Academica 2026 - 2027</strong> del estudiante <strong>{estudiante}</strong>
                     ha sido <strong>reprogramado</strong> exitosamente.
                 </p>
 
@@ -642,7 +642,7 @@ def enviar_correo_reprogramacion(
                 </div>
             </div>
             <div class="footer">
-                Comfandi E &mdash; Sede Yumbo &mdash; 2026<br>
+                Comfandi E &mdash; Comfandi E Yumbo &mdash; 2026<br>
                 Este es un mensaje automatico.
             </div>
         </div>
