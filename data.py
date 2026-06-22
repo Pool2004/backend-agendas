@@ -1,10 +1,29 @@
 import os
-import json
+import psycopg2
+from psycopg2.extras import RealDictCursor
+from dotenv import load_dotenv
 from typing import List, Dict, Any
 
-# Ruta al archivo de persistencia de citas
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-CITAS_FILE_PATH = os.path.join(BASE_DIR, "citas.txt")
+# Cargar variables de entorno del archivo .env
+load_dotenv()
+
+DATABASE_URL = os.getenv("DATABASE_URL")
+
+def get_db_connection():
+    """
+    Establece una conexión con la base de datos PostgreSQL de Supabase.
+    Soporta DATABASE_URL o parámetros individuales.
+    """
+    if DATABASE_URL:
+        return psycopg2.connect(DATABASE_URL)
+    else:
+        return psycopg2.connect(
+            host=os.getenv("DB_HOST"),
+            port=os.getenv("DB_PORT", "5432"),
+            database=os.getenv("DB_NAME"),
+            user=os.getenv("DB_USER"),
+            password=os.getenv("DB_PASSWORD")
+        )
 
 # Fechas de atencion: miercoles 8 y jueves 9 de julio de 2026
 FECHAS_ATENCION = [
@@ -45,101 +64,98 @@ def generar_horarios(grupo: str) -> List[str]:
     return slots
 
 
-# Base de datos del personal asignado para el proceso de matriculas 2026-2027.
-# Cada entrada incluye un identificador unico, nombre del funcionario, area asignada y grupo.
-PERSONAL_DB = [
-    {"id": "1",  "docente": "Mónica Moreno",         "area": "Coordinación de Auditoría",    "grupo": "A", "correo": None},
-    {"id": "2",  "docente": "Daniela Gordillo",       "area": "Auditoría",                    "grupo": "A", "correo": None},
-    {"id": "3",  "docente": "Juan Pablo",              "area": "Auditoría",                    "grupo": "A", "correo": None},
-    {"id": "4",  "docente": "Johny Julián Ospina",    "area": "Auditoría",                    "grupo": "A", "correo": "johnyospina@comfandi.edu.co"},
-    {"id": "5",  "docente": "Lorena Burbano",          "area": "Auditoría",                    "grupo": "A", "correo": "lorenaburbano@comfandi.edu.co"},
-    {"id": "6",  "docente": "Sofía Vargas",            "area": "Auditoría",                    "grupo": "A", "correo": "sofiavargas@comfandi.edu.co"},
-    {"id": "7",  "docente": "Yuli Figueroa",           "area": "Auditoría",                    "grupo": "A", "correo": "yulifigueroa@comfandi.edu.co"},
-    {"id": "8",  "docente": "Zandra Rodríguez",        "area": "Auditoría",                    "grupo": "A", "correo": "zandrarodriguez@comfandi.edu.co"},
-    {"id": "9",  "docente": "Yulieth Pulgarín",        "area": "Matrículas - Grado Primero",   "grupo": "A", "correo": "yuliethpulgarin@comfandi.edu.co"},
-    {"id": "10", "docente": "Yoselin Clavijo",         "area": "Matrículas - Grado Primero",   "grupo": "A", "correo": "yoselinclavijo@comfandi.edu.co"},
-    {"id": "11", "docente": "Valery de Jesús",         "area": "Matrículas - Grado Segundo",   "grupo": "A", "correo": "valerydejesus@comfandi.edu.co"},
-    {"id": "12", "docente": "Alejandra Méndez",        "area": "Matrículas - Grado Segundo",   "grupo": "A", "correo": "alejandramendez@comfandi.edu.co"},
-    {"id": "13", "docente": "Óscar Gómez Peña",        "area": "Matrículas - Grado Tercero",   "grupo": "A", "correo": "oscargomez@comfandi.edu.co"},
-    {"id": "14", "docente": "Brandon David Muñoz",     "area": "Matrículas - Grado Tercero",   "grupo": "A", "correo": "brandonmunoz@comfandi.edu.co"},
-    {"id": "15", "docente": "Carolina Ortiz",          "area": "Matrículas - Grado Cuarto",    "grupo": "A", "correo": "carolinaortiz@comfandi.edu.co"},
-    {"id": "16", "docente": "Eubeimar Samboni",        "area": "Matrículas - Grado Cuarto",    "grupo": "A", "correo": "hernandosamboni@comfandi.edu.co"},
-    {"id": "17", "docente": "Jenny Salas",             "area": "Matrículas - Grado Quinto",    "grupo": "A", "correo": "jennysalas@comfandi.edu.co"},
-    {"id": "18", "docente": "Juan David Celis",        "area": "Matrículas - Grado Quinto",    "grupo": "B", "correo": "juandavidcelisruiz@comfandi.edu.co"},
-    {"id": "19", "docente": "Maritza Muñoz",           "area": "Matrículas - Grado Sexto",     "grupo": "B", "correo": "maritzamunoz@comfandi.edu.co"},
-    {"id": "20", "docente": "Faber Tenorio",           "area": "Matrículas - Grado Sexto",     "grupo": "B", "correo": "fabertenorio@comfandi.edu.co"},
-    {"id": "21", "docente": "Alejandro Londoño",       "area": "Matrículas - Grado Séptimo",   "grupo": "B", "correo": "luisalejandrolondono@comfandi.edu.co"},
-    {"id": "22", "docente": "Vanessa García",          "area": "Matrículas - Grado Séptimo",   "grupo": "B", "correo": "vanessagarcia@comfandi.edu.co"},
-    {"id": "23", "docente": "Catalina Quijano",        "area": "Matrículas - Grado Octavo",    "grupo": "B", "correo": "catalinaquijano@comfandi.edu.co"},
-    {"id": "24", "docente": "Ricardo Palacios",        "area": "Matrículas - Grado Octavo",    "grupo": "B", "correo": "ricardopalacio@comfandi.edu.co"},
-    {"id": "25", "docente": "Gustavo Montaña",         "area": "Matrículas - Grado Octavo",    "grupo": "B", "correo": "gustavomontana@comfandi.edu.co"},
-    {"id": "26", "docente": "Andrés Amariles",         "area": "Matrículas - Grado Noveno",    "grupo": "B", "correo": "leonelamariles@comfandi.edu.co"},
-    {"id": "27", "docente": "Ana María Osorio",        "area": "Matrículas - Grado Noveno",    "grupo": "B", "correo": "anamariaadarme@comfandi.edu.co"},
-    {"id": "28", "docente": "Carlos Hernán Méndez",    "area": "Matrículas - Grado Décimo",    "grupo": "B", "correo": "carlosmendez@comfandi.edu.co"},
-    {"id": "29", "docente": "Bdahian Libeth",          "area": "Matrículas - Grado Décimo",    "grupo": "B", "correo": "dahianlibhetortiz@comfandi.edu.co"},
-    {"id": "30", "docente": "Diana Carabalí",          "area": "Matrículas - Grado Once",      "grupo": "B", "correo": "dianacarabali@comfandi.edu.co"},
-    {"id": "31", "docente": "Geraldine Ospina",        "area": "Matrículas - Grado Once",      "grupo": "B", "correo": "geraldinelopez@comfandi.edu.co"}
-]
-
-# Pre-calcular los horarios base de cada persona segun su grupo al iniciar el modulo
-for persona in PERSONAL_DB:
-    persona["horarios_base"] = generar_horarios(persona["grupo"])
-
-
 def obtener_todos_los_grados() -> List[Dict[str, str]]:
     """
-    Retorna la lista del personal disponible para agendamiento.
-    Incluye el campo 'area' para que el frontend pueda mostrar informacion descriptiva.
+    Retorna la lista de docentes disponibles recuperados desde Supabase.
     """
-    return [
-        {
-            "grado": p["id"],
-            "grupo": p["grupo"],
-            "docente": p["docente"],
-            "area": p["area"]
-        }
-        for p in PERSONAL_DB
-    ]
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("SELECT id AS grado, grupo, docente, area FROM docentes ORDER BY id::integer ASC;")
+                return list(cur.fetchall())
+    except Exception as e:
+        print(f"Error al obtener todos los grados desde la DB: {e}")
+        return []
 
 
 def buscar_grado_por_id(grado_id: str) -> Dict[str, Any]:
     """
-    Busca un miembro del personal por su identificador unico.
+    Busca un miembro del personal por su identificador único en Supabase.
     Retorna None si no existe.
     """
-    for p in PERSONAL_DB:
-        if p["id"] == grado_id:
-            return p
-    return None
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("SELECT id, docente, area, grupo, correo FROM docentes WHERE id = %s;", (grado_id,))
+                res = cur.fetchone()
+                if res:
+                    res_dict = dict(res)
+                    res_dict["horarios_base"] = generar_horarios(res_dict["grupo"])
+                    return res_dict
+                return None
+    except Exception as e:
+        print(f"Error al buscar grado por ID en la DB: {e}")
+        return None
 
 
 def leer_citas() -> List[Dict[str, Any]]:
     """
-    Lee las citas registradas desde el archivo de texto citas.txt.
-    Retorna una lista vacia si el archivo no existe o esta corrupto.
+    Retorna la lista completa de todas las citas agendadas desde Supabase.
     """
-    if not os.path.exists(CITAS_FILE_PATH):
-        guardar_citas([])
-        return []
     try:
-        with open(CITAS_FILE_PATH, "r", encoding="utf-8") as archivo:
-            contenido = archivo.read().strip()
-            if not contenido:
-                return []
-            return json.loads(contenido)
-    except (json.JSONDecodeError, IOError):
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("SELECT acudiente, telefono, correo, estudiante, docente_id AS grado, horario FROM citas;")
+                return [dict(row) for row in cur.fetchall()]
+    except Exception as e:
+        print(f"Error al leer citas desde la DB: {e}")
         return []
 
 
-def guardar_citas(citas: List[Dict[str, Any]]) -> bool:
+def verificar_cita_existente(grado_id: str, horario: str) -> bool:
     """
-    Escribe la lista completa de citas en el archivo citas.txt en formato JSON.
+    Verifica si ya existe un agendamiento para ese docente y horario en la base de datos.
     """
     try:
-        with open(CITAS_FILE_PATH, "w", encoding="utf-8") as archivo:
-            json.dump(citas, archivo, indent=2, ensure_ascii=False)
-        return True
-    except IOError:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("SELECT 1 FROM citas WHERE docente_id = %s AND horario = %s LIMIT 1;", (grado_id, horario))
+                return cur.fetchone() is not None
+    except Exception as e:
+        print(f"Error al verificar cita existente: {e}")
+        return False
+
+
+def crear_cita(acudiente: str, telefono: str, correo: str, estudiante: str, grado_id: str, horario: str) -> bool:
+    """
+    Inserta un nuevo registro de cita en la tabla 'citas' en Supabase.
+    """
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "INSERT INTO citas (acudiente, telefono, correo, estudiante, docente_id, horario) VALUES (%s, %s, %s, %s, %s, %s);",
+                    (acudiente, telefono, correo, estudiante, grado_id, horario)
+                )
+                conn.commit()
+                return True
+    except Exception as e:
+        print(f"Error al guardar la cita en la DB: {e}")
+        return False
+
+
+def eliminar_cita(grado_id: str, horario: str) -> bool:
+    """
+    Elimina una cita específica filtrando por docente y horario.
+    """
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute("DELETE FROM citas WHERE docente_id = %s AND horario = %s;", (grado_id, horario))
+                conn.commit()
+                return True
+    except Exception as e:
+        print(f"Error al eliminar la cita en la DB: {e}")
         return False
 
 
@@ -152,24 +168,42 @@ def obtener_horarios_disponibles(grado_id: str) -> Dict[str, Any]:
     if not persona:
         return None
 
-    citas_existentes = leer_citas()
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor(cursor_factory=RealDictCursor) as cur:
+                cur.execute("SELECT horario FROM citas WHERE docente_id = %s;", (grado_id,))
+                citas_existentes = cur.fetchall()
+                
+        horarios_reservados = {cita["horario"] for cita in citas_existentes}
+        
+        horarios_disponibles = [
+            h for h in persona["horarios_base"]
+            if h not in horarios_reservados
+        ]
 
-    # Obtener el conjunto de horarios ya reservados para esta persona especifica
-    horarios_reservados = {
-        cita["horario"]
-        for cita in citas_existentes
-        if cita["grado"] == grado_id
-    }
+        return {
+            "docente": persona["docente"],
+            "area": persona["area"],
+            "grupo": persona["grupo"],
+            "correo": persona["correo"],
+            "horarios": horarios_disponibles
+        }
+    except Exception as e:
+        print(f"Error al obtener horarios disponibles desde la DB: {e}")
+        return None
 
-    horarios_disponibles = [
-        h for h in persona["horarios_base"]
-        if h not in horarios_reservados
-    ]
-
-    return {
-        "docente": persona["docente"],
-        "area": persona["area"],
-        "grupo": persona["grupo"],
-        "correo": persona["correo"],
-        "horarios": horarios_disponibles
-    }
+def validar_credenciales_admin(usuario: str, contrasena: str) -> bool:
+    """
+    Verifica si las credenciales de un administrativo existen y coinciden en Supabase.
+    """
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "SELECT 1 FROM administrativos WHERE usuario = %s AND contrasena = %s LIMIT 1;",
+                    (usuario.strip(), contrasena.strip())
+                )
+                return cur.fetchone() is not None
+    except Exception as e:
+        print(f"Error al validar credenciales de administrador en la DB: {e}")
+        return False

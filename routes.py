@@ -8,8 +8,11 @@ from backend.data import (
     obtener_todos_los_grados,
     obtener_horarios_disponibles,
     leer_citas,
-    guardar_citas,
-    buscar_grado_por_id
+    buscar_grado_por_id,
+    verificar_cita_existente,
+    crear_cita,
+    eliminar_cita,
+    validar_credenciales_admin
 )
 from backend.email_utils import enviar_correo_confirmacion, enviar_correo_docente
 
@@ -23,6 +26,11 @@ class CitaSchema(BaseModel):
     estudiante: str = Field(..., min_length=2, description="Nombre completo del estudiante")
     grado: str = Field(..., description="Grado seleccionado")
     horario: str = Field(..., description="Horario seleccionado")
+
+# Modelo de Pydantic para el inicio de sesión administrativo
+class LoginSchema(BaseModel):
+    usuario: str = Field(..., min_length=1, description="Nombre de usuario del administrativo")
+    contrasena: str = Field(..., min_length=1, description="Contraseña del administrativo")
 
 # Expresión regular sencilla para validar el formato de correo electrónico sin dependencias adicionales
 EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
@@ -95,32 +103,18 @@ def create_cita(cita: CitaSchema):
             detail=f"El horario '{horario}' no pertenece al cronograma del docente asignado al grado {grado_id}."
         )
 
-    # Leer citas registradas para comprobar disponibilidad y duplicados
-    citas_actuales = leer_citas()
-
     # Evitar reservas duplicadas: verificar si ya existe una cita registrada para ese grado y horario
-    for c in citas_actuales:
-        if c["grado"] == grado_id and c["horario"] == horario:
-            raise HTTPException(
-                status_code=status.HTTP_409_CONFLICT,
-                detail=f"El horario '{horario}' para el grado {grado_id} ya ha sido reservado por otro acudiente."
-            )
+    if verificar_cita_existente(grado_id, horario):
+        raise HTTPException(
+            status_code=status.HTTP_409_CONFLICT,
+            detail=f"El horario '{horario}' para el grado {grado_id} ya ha sido reservado por otro acudiente."
+        )
 
-    # Crear la nueva cita y guardarla
-    nueva_cita = {
-        "acudiente": acudiente,
-        "telefono": telefono,
-        "correo": correo,
-        "estudiante": estudiante,
-        "grado": grado_id,
-        "horario": horario
-    }
-
-    citas_actuales.append(nueva_cita)
-    if not guardar_citas(citas_actuales):
+    # Crear la nueva cita y guardarla en la base de datos
+    if not crear_cita(acudiente, telefono, correo, estudiante, grado_id, horario):
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
-            detail="Error interno al intentar guardar la cita en el sistema de almacenamiento."
+            detail="Error interno al intentar guardar la cita en la base de datos."
         )
 
     # Enviar correo de confirmacion en segundo plano sin bloquear la respuesta HTTP.
@@ -172,3 +166,44 @@ def list_citas():
     Retorna la lista completa de todas las citas agendadas y guardadas.
     """
     return leer_citas()
+
+@router.delete("/citas")
+def delete_cita(grado: str, horario: str):
+    """
+    Cancela un agendamiento existente buscando por grado y horario.
+    """
+    grado_id = grado.strip()
+    horario_str = horario.strip()
+
+    if not verificar_cita_existente(grado_id, horario_str):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No se encontró ningún agendamiento para el grado y horario especificados."
+        )
+
+    if not eliminar_cita(grado_id, horario_str):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno al intentar guardar los cambios en la base de datos."
+        )
+
+    return {
+        "success": True,
+        "message": "El agendamiento ha sido cancelado con éxito y el horario ha sido liberado."
+    }
+
+@router.post("/login")
+def login(credentials: LoginSchema):
+    """
+    Autentica a un administrativo con usuario y contraseña.
+    """
+    if validar_credenciales_admin(credentials.usuario, credentials.contrasena):
+        return {
+            "success": True,
+            "message": "Inicio de sesión exitoso"
+        }
+    else:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Usuario o contraseña incorrectos"
+        )
