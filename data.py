@@ -109,11 +109,11 @@ def leer_citas(correo: str = None) -> List[Dict[str, Any]]:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 if correo:
                     cur.execute(
-                        "SELECT acudiente, telefono, correo, estudiante, docente_id AS grado, horario FROM citas WHERE correo = %s;",
+                        "SELECT acudiente, telefono, correo, estudiante, docente_id AS grado, horario, estado FROM citas WHERE correo = %s;",
                         (correo.strip(),)
                     )
                 else:
-                    cur.execute("SELECT acudiente, telefono, correo, estudiante, docente_id AS grado, horario FROM citas;")
+                    cur.execute("SELECT acudiente, telefono, correo, estudiante, docente_id AS grado, horario, estado FROM citas;")
                 return [dict(row) for row in cur.fetchall()]
     except Exception as e:
         print(f"Error al leer citas desde la DB: {e}")
@@ -129,7 +129,7 @@ def obtener_cita_por_horario(grado_id: str, horario: str) -> Dict[str, Any]:
         with get_db_connection() as conn:
             with conn.cursor(cursor_factory=RealDictCursor) as cur:
                 cur.execute(
-                    "SELECT acudiente, telefono, correo, estudiante, docente_id AS grado, horario FROM citas WHERE docente_id = %s AND horario = %s LIMIT 1;",
+                    "SELECT acudiente, telefono, correo, estudiante, docente_id AS grado, horario, estado FROM citas WHERE docente_id = %s AND horario = %s LIMIT 1;",
                     (grado_id, horario)
                 )
                 row = cur.fetchone()
@@ -183,6 +183,24 @@ def eliminar_cita(grado_id: str, horario: str) -> bool:
                 return True
     except Exception as e:
         print(f"Error al eliminar la cita en la DB: {e}")
+        return False
+
+
+def actualizar_estado_cita(grado_id: str, horario: str, nuevo_estado: str) -> bool:
+    """
+    Actualiza el estado de una cita específica en Supabase.
+    """
+    try:
+        with get_db_connection() as conn:
+            with conn.cursor() as cur:
+                cur.execute(
+                    "UPDATE citas SET estado = %s WHERE docente_id = %s AND horario = %s;",
+                    (nuevo_estado, grado_id, horario)
+                )
+                conn.commit()
+                return True
+    except Exception as e:
+        print(f"Error al actualizar el estado de la cita en la DB: {e}")
         return False
 
 

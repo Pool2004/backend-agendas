@@ -14,7 +14,8 @@ from data import (
     eliminar_cita,
     obtener_rol_admin,
     reprogramar_cita,
-    obtener_cita_por_horario
+    obtener_cita_por_horario,
+    actualizar_estado_cita
 )
 from email_utils import (
     enviar_correo_confirmacion,
@@ -46,6 +47,12 @@ class ReprogramarCitaSchema(BaseModel):
     grado_nuevo: str = Field(..., description="Nuevo ID del docente/grado")
     horario_actual: str = Field(..., description="Horario actual de la cita")
     horario_nuevo: str = Field(..., description="Nuevo horario solicitado")
+
+# Modelo de Pydantic para actualizar el estado de una cita (ej: Atendido)
+class CitaEstadoSchema(BaseModel):
+    grado: str = Field(..., description="ID del docente/grado")
+    horario: str = Field(..., description="Horario de la cita")
+    estado: str = Field(..., description="Nuevo estado de la cita")
 
 # Expresión regular sencilla para validar el formato de correo electrónico sin dependencias adicionales
 EMAIL_REGEX = re.compile(r"^[a-zA-Z0-9_.+-]+@[a-zA-Z0-9-]+\.[a-zA-Z0-9-.]+$")
@@ -306,5 +313,34 @@ def route_reprogramar_cita(payload: ReprogramarCitaSchema):
     return {
         "success": True,
         "message": "La cita ha sido reprogramada con éxito."
+    }
+
+
+@router.put("/citas/estado", response_model=Dict[str, Any])
+def update_cita_estado(payload: CitaEstadoSchema):
+    """
+    Actualiza el estado de un agendamiento existente.
+    """
+    grado = payload.grado.strip()
+    horario = payload.horario.strip()
+    nuevo_estado = payload.estado.strip()
+
+    # Validar que el agendamiento exista
+    if not verificar_cita_existente(grado, horario):
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail="No se encontró ningún agendamiento para el grado y horario especificados."
+        )
+
+    # Actualizar el estado en la base de datos
+    if not actualizar_estado_cita(grado, horario, nuevo_estado):
+        raise HTTPException(
+            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
+            detail="Error interno al intentar actualizar el estado de la cita en la base de datos."
+        )
+
+    return {
+        "success": True,
+        "message": f"El estado del agendamiento ha sido actualizado a '{nuevo_estado}' con éxito."
     }
 

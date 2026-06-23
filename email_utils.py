@@ -249,6 +249,29 @@ def enviar_correo_confirmacion(
                 line-height: 1.6;
                 margin-top: 20px;
             }}
+            .docs-box {{
+                background-color: #f8fafc;
+                border: 1px solid #e2e8f0;
+                border-radius: 8px;
+                padding: 20px 24px;
+                margin: 20px 0;
+            }}
+            .docs-box h2 {{
+                color: #1e293b;
+                font-size: 14px;
+                font-weight: 700;
+                margin: 0 0 12px;
+            }}
+            .docs-list {{
+                padding-left: 20px;
+                margin: 0;
+                font-size: 13px;
+                color: #475569;
+                line-height: 1.6;
+            }}
+            .docs-list li {{
+                margin-bottom: 8px;
+            }}
             .footer {{
                 background-color: #264fa0;
                 padding: 16px 32px;
@@ -300,6 +323,31 @@ def enviar_correo_confirmacion(
                     </div>
                 </div>
 
+                <div class="docs-box">
+                    <h2>Documentos requeridos para formalizar la matrícula:</h2>
+                    <ul class="docs-list">
+                        <li>Ficha de matrícula (se entrega en el colegio)</li>
+                        <li>Contrato de Matrícula*</li>
+                        <li>Consentimiento informado para atención en psicología*</li>
+                        <li>Formato Ley 2300 formato para autorización de medidas de protección al derecho de intimidad de los consumidores Comfandi</li>
+                        <li>Pagaré y Carta de Instrucciones para firmar un pagaré en blanco</li>
+                        <li>Fotocopia del Informe descriptivo - explicativo final del grado anterior.</li>
+                        <li>Certificados de estudio originales de años anteriores cursados y aprobados.</li>
+                        <li>Paz y Salvo de costos educativos y constancia de retiro del SIMAT del colegio anterior.</li>
+                        <li>Fotocopia del registro civil y la tarjeta de identidad del estudiante. (en los casos que aplique)</li>
+                        <li>Fotocopia del carnet actualizado de vacunación.</li>
+                        <li>Fotocopias del carnet de crecimiento y desarrollo actualizado.</li>
+                        <li>Certificado afiliación EPS</li>
+                        <li>1 foto reciente del estudiante tamaño cédula, marcada con nombre completo y grado.</li>
+                        <li>Para estudiantes extranjeros, fotocopia de la visa vigente expedida por la autoridad competente, que los faculte para realizar estudios en Colombia.</li>
+                        <li>Fotocopia legible de las cédulas de ciudadanía del Deudor y Deudor Solidario.</li>
+                        <li>Carta salarial o el último comprobante de pago original del Deudor y Deudor Solidario, estos deben tener impreso el Nit, dirección y teléfono de la empresa y su fecha de expedición debe ser no mayor a tres meses al momento de la matrícula. Los empleados de Comfandi sólo deben anexar el último comprobante de pago de nómina.</li>
+                        <li>Presencia simultánea del Deudor y Deudor Solidario para las firmas del pagaré y carta de instrucciones o documentos debidamente firmados y autenticados en notaría, si así lo ha solicitado el padre o acudiente.</li>
+                        <li>El deudor solidario no puede ser pensionado.</li>
+                        <li>En caso de que el Deudor y/o Deudor Solidario sean trabajadores independientes deberán presentar certificado de ingresos con vigencia NO superior a tres meses y adjuntar la fotocopia de la tarjeta profesional del contador público.</li>
+                    </ul>
+                </div>
+
                 <div class="notice">
                     <strong>Recuerde:</strong> Asista puntualmente a su cita con la documentacion
                     completa requerida para el proceso de matricula. En caso de no poder asistir,
@@ -324,6 +372,26 @@ def enviar_correo_confirmacion(
         f"Docente: {docente}\n"
         f"Horario: {horario}\n"
         f"Telefono: {telefono}\n\n"
+        f"Documentos requeridos para formalizar la matrícula:\n"
+        f"• Ficha de matrícula (se entrega en el colegio)\n"
+        f"• Contrato de Matrícula*\n"
+        f"• Consentimiento informado para atención en psicología*\n"
+        f"• Formato Ley 2300 formato para autorización de medidas de protección al derecho de intimidad de los consumidores Comfandi,\n"
+        f"• Pagaré y Carta de Instrucciones para firmar un pagaré en blanco\n"
+        f"• Fotocopia del Informe descriptivo - explicativo final del grado anterior.\n"
+        f"• Certificados de estudio originales de años anteriores cursados y aprobados.\n"
+        f"• Paz y Salvo de costos educativos y constancia de retiro del SIMAT del colegio anterior.\n"
+        f"• Fotocopia del registro civil y la tarjeta de identidad del estudiante (en los casos que aplique).\n"
+        f"• Fotocopia del carnet actualizado de vacunación.\n"
+        f"• Fotocopias del carnet de crecimiento y desarrollo actualizado.\n"
+        f"• Certificado afiliación EPS\n"
+        f"• 1 foto reciente del estudiante tamaño cédula, marcada con nombre completo y grado.\n"
+        f"• Para estudiantes extranjeros, fotocopia de la visa vigente expedida por la autoridad competente, que los faculte para realizar estudios en Colombia.\n"
+        f"• Fotocopia legible de las cédulas de ciudadanía del Deudor y Deudor Solidario.\n"
+        f"• Carta salarial o el último comprobante de pago original del Deudor y Deudor Solidario, estos deben tener impreso el Nit, dirección y teléfono de la empresa y su fecha de expedición debe ser no mayor a tres meses al momento de la matrícula. Los empleados de Comfandi sólo deben anexar el último comprobante de pago de nómina.\n"
+        f"• Presencia simultánea del Deudor y Deudor Solidario para las firmas del pagaré y carta de instrucciones o documentos debidamente firmados y autenticados en notaría, si así lo ha solicitado el padre o acudiente.\n"
+        f"• El deudor solidario no puede ser pensionado.\n"
+        f"• En caso de que el Deudor y/o Deudor Solidario sean trabajadores independientes deberán presentar certificado de ingresos con vigencia NO superior a tres meses y adjuntar la fotocopia de la tarjeta profesional del contador público.\n\n"
         f"Por favor asista puntualmente con la documentacion requerida."
     )
 
